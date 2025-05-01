@@ -4,12 +4,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import einops
 from config import ModelArgs
+from utils import apply_rotary_embeddings
 device=ModelArgs.device
 
 import math
 import torch.nn.functional as F
 class AttentionWithKVCache(nn.Module):
-    def __init__(self, dim: int, num_heads: int, window_size: int, max_seq_len: int = 2048, num_kv_heads:int=2):
+    def __init__(self, dim: int, num_heads: int, window_size: int, device, max_seq_len: int = 2048, num_kv_heads:int=2):
         """
         Initialize the MultiHeadedAttention module with KV cache.
 
@@ -29,6 +30,7 @@ class AttentionWithKVCache(nn.Module):
         self.repeats=num_heads//num_kv_heads
         self.window_size=window_size
         self.half_window=self.window_size//2
+        self.device=device
         
         # Projection layers
         self.W_q = nn.Linear(dim,self.num_heads*self.head_dim)
@@ -67,15 +69,15 @@ class AttentionWithKVCache(nn.Module):
         if self.cache_pos + seq_len > self.max_seq_len: #check if cache has enough space
             #roll the cache to make space
             roll_amount=seq_len
-            self.cache_k=torch.roll(self.cache_k,shifts=-roll_amount,dim=0)
-            self.cache_v=torch.roll(self.cache_v,shifts=-roll_amount,dim=0)
+            self.cache_k=torch.roll(self.cache_k,shifts=-roll_amount,dims=0)
+            self.cache_v=torch.roll(self.cache_v,shifts=-roll_amount,dims=0)
             self.cache_pos-=roll_amount
         
         self.cache_k[self.cache_pos:self.cache_pos+seq_len]=k.squeeze(0)
         self.cache_v[self.cache_pos:self.cache_pos+seq_len]=v.squeeze(0)
         self.cache_pos+=seq_len
 
-    def forward(self, x: torch.Tensor, start_pos: int = 0):
+    def forward(self, x: torch.Tensor,freqs_complex: torch.Tensor=None, start_pos: int = 0 ):
         """
         Compute attention with KV cache.
 
@@ -92,7 +94,13 @@ class AttentionWithKVCache(nn.Module):
         q = self.W_q(x).view(batch_size, seq_len, self.num_heads, self.head_dim)
         k = self.W_k(x).view(batch_size, seq_len, self.num_kv_heads, self.head_dim)
         v = self.W_v(x).view(batch_size, seq_len, self.num_kv_heads, self.head_dim)
-
+        print(q.shape)
+        if freqs_complex is not  None:
+            print('freqs',freqs_complex.shape)
+            q=apply_rotary_embeddings(q,freqs_complex,device=self.device)
+            k=apply_rotary_embeddings(k,freq_complex=freqs_complex,device=self.device)
+            
+        
 
         if self.training:
             # Training mode - full attention
@@ -108,10 +116,11 @@ class AttentionWithKVCache(nn.Module):
             k_unf=pad_k.unfold(dimension=2,size=self.window_size,step=1).transpose(3,4) #(batch_size,num_heads,seq_len,self.window_size,d_head)
             v_unf=pad_v.unfold(dimension=2,size=self.window_size,step=1).transpose(3,4) #(batch_size,num_heads,seq_len,self.window_size,d_head)
             q=q.unsqueeze(-2)
-            
+            print('q',q.shape)
+            print('k_unf',k_unf.shape)
             attn_scores=einops.einsum(q,k_unf,'b h s w d, b h s w d -> b h s w ')
             
-            mask=torch.tril(torch.ones(self.window_size,self.window_size,device=q.device))
+            mask=torch.tril(torch.ones(self.window_size,self.window_size,device=self.device))
             mask=mask[-1]
             mask=mask.view(1,1,1,self.window_size).expand(batch_size,self.num_heads,seq_len,self.window_size)
             attn_scores = attn_scores.masked_fill(mask == 0, float('-inf'))
@@ -134,10 +143,11 @@ class AttentionWithKVCache(nn.Module):
                 self.cache_k=torch.zeros((self.max_seq_len,self.num_kv_heads,self.head_dim))
                 self.cache_v=torch.zeros((self.max_seq_len,self.num_kv_heads,self.head_dim))
             
+           
             cached_k=self.cache_k[start_window:current_len].unsqueeze(0)
             cached_v=self.cache_v[start_window:current_len].unsqueeze(0)
             
- 
+            valid_cache_len=cached_k.shape[-2]
             
 
             q=q.transpose(1,2)
@@ -148,16 +158,19 @@ class AttentionWithKVCache(nn.Module):
            
             attn_scores = torch.matmul(q, cached_k.transpose(-2, -1)) / math.sqrt(self.head_dim)
             
-            # Apply causal mask for new tokens
         
+            valid_cache_len = cached_k.shape[-2]
+
             mask = torch.ones((seq_len, valid_cache_len), dtype=torch.bool, device=x.device)
             mask = torch.tril(mask, diagonal=valid_cache_len - seq_len)
 
-            # Expand mask to (batch_size, num_heads, seq_len, valid_cache_len)
-            mask = mask.unsqueeze(0).unsqueeze(0)  # (1,1,seq_len,valid_cache_len)
+            mask = mask.unsqueeze(0).unsqueeze(0)  # (1, 1, seq_len, valid_cache_len)
             mask = mask.expand(batch_size, self.num_heads, seq_len, valid_cache_len)
 
             attn_scores = attn_scores.masked_fill(~mask, float('-inf'))
+            # print("attn_scores shape:", attn_scores.shape)
+            # print("mask shape:", mask.shape)
+            #attn_scores = attn_scores.masked_fill(~mask, float('-inf'))
             attn_probs = F.softmax(attn_scores, dim=-1)
             output = torch.matmul(attn_probs, cached_v)
 

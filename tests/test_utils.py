@@ -1,5 +1,5 @@
 import pytest
-from utils import RMSNorm
+from utils import RMSNorm, apply_rotary_embeddings,precompute_theta_pos_frequencies
 import torch
 
 def test_output_shape():
@@ -37,3 +37,45 @@ def test_gradient_flow():
 def test_weight_initialization():
     norm = RMSNorm(dim=10)
     assert torch.allclose(norm.w.data, torch.ones(10)), "Weights should initialize to ones"
+    
+    
+    
+def test_precompute_theta_pos_frequencies_even_check():
+    with pytest.raises(AssertionError, match="d_head must be even"):
+        precompute_theta_pos_frequencies(7, 4, "cpu")
+
+
+def test_apply_rotary_emb_output_shape():
+    batch_size = 2
+    seq_len = 4
+    d_head = 8
+    device = "cpu"
+
+    x = torch.randn(batch_size, seq_len, 2,d_head, device=device)
+    freq = precompute_theta_pos_frequencies(d_head, seq_len, device)
+    print(x.shape)
+    print(freq.shape)
+    out = apply_rotary_embeddings(x, freq, device)
+
+    assert out.shape == x.shape, "Output shape mismatch"
+    assert out.dtype == x.dtype, "Output dtype mismatch"
+    assert out.device.type == device, "Output device mismatch"
+
+
+def test_apply_rotary_embeddings_precision_and_device():
+    for dtype in [torch.float32, torch.float16]:
+        x = torch.randn(1, 2, 2,8, dtype=dtype)
+        freq = precompute_theta_pos_frequencies(8, 2, "cpu")
+        out = apply_rotary_embeddings(x, freq, "cpu")
+
+        assert torch.all(torch.isfinite(out)), "Output has non-finite values"
+        assert out.dtype == dtype, f"Expected dtype {dtype}, got {out.dtype}"
+
+
+def test_apply_rotary_embeddings_on_cuda_if_available():
+    if torch.cuda.is_available():
+        device = "cuda"
+        x = torch.randn(1, 3, 8, device=device)
+        freq = precompute_theta_pos_frequencies(8, 3, device)
+        out = apply_rotary_embeddings(x, freq, device)
+        assert out.device.type == "cuda"

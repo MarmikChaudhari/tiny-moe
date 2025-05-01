@@ -19,3 +19,5 @@ class ModelArgs:
     top_k:int=2 #top k
     device:str='cuda' if torch.cuda.is_available() else 'cpu' 
     wandb_project:str='mixtral'
+    attn_eps:float=1e-6
+    ffn_eps:float=1e-6
