@@ -1,7 +1,7 @@
 import torch
 import pytest
-from utils import precompute_theta_pos_frequencies
-from layer import layer  # Replace with actual import
+from model.utils import precompute_theta_pos_frequencies
+from model.layer import layer  # Replace with actual import
 
 def make_dummy_inputs(batch_size, seq_len, d_model, d_head, device):
     assert d_head % 2 == 0, "d_head must be even"

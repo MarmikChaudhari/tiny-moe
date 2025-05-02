@@ -122,7 +122,7 @@ class SubLayerConnection(nn.Module):
         return x + self.dropout(sublayer(self.norm(x)))
     
 
-def clones(N):
+def clones(module,N):
     """
     Creates a list of N copies of the given nn.Module.
 
@@ -133,4 +133,4 @@ def clones(N):
     Returns:
         nn.ModuleList: A list of N identical nn.Module objects.
     """
-    return nn.ModuleList([copy.deepcopy(nn) for _ in range(N)])
+    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])

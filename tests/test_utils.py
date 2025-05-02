@@ -1,5 +1,5 @@
 import pytest
-from utils import RMSNorm, apply_rotary_embeddings,precompute_theta_pos_frequencies
+from model.utils import RMSNorm, apply_rotary_embeddings,precompute_theta_pos_frequencies
 import torch
 
 def test_output_shape():
