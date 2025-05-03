@@ -13,12 +13,8 @@ tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-small")  # or "meta-ll
 tokens = tokenizer("The cat sat on the mat.", return_tensors="pt")
 train_data=dataset[:48000]
 val_data=dataset[48000:]
-for d in dataset["text"]:
-  print(tokenizer.encode(d,return_tensors="pt"))
-  break
 
-
-
+vocab_size=tokenizer.vocab_size
 class Tiny_dataset(Dataset):
   def __init__(self,data,tokenizer,max_seq_length=150):
     """
@@ -42,7 +38,7 @@ class Tiny_dataset(Dataset):
         self.tokenizer.encode(
             text,
             truncation=True,
-            max_length=max_seq_length,
+            max_length=max_seq_length + 1,
             padding=False,  # Padding will be handled in collate_fn
             #return_tensors=None  # So it returns dicts of lists, not tensors # not needed anymore since we loop
         )
@@ -54,10 +50,15 @@ class Tiny_dataset(Dataset):
 
   def __getitem__(self,index):
     encoded=self.encoded_texts[index]
-    return torch.tensor(encoded,dtype=torch.long)
+    input_ids=torch.tensor(encoded[:-1],dtype=torch.long)
+    labels=torch.tensor(encoded[1:],dtype=torch.long)
+    return {
+            "input_ids": input_ids,
+            "labels": labels
+        }
 
   def __len__(self):
-    return len(self.data["text"])
+    return len(self.encoded_texts)
   
 
 
