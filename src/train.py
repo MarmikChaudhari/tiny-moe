@@ -7,12 +7,12 @@ from model.model import tiny_mixtral
 from model.config import ModelArgs
 from data import vocab_size,tokenizer,train_dataset,val_dataset,train_loader,val_loader,batch_size
 from tqdm import tqdm
-
+import argparse
 
 print(len(val_loader))
 
 device="cuda" if torch.cuda.is_available() else "cpu"
-args = ModelArgs(vocab_size=vocab_size,d_model=512,d_head=64,n_heads=8,n_kv_heads=2,window_size=257,n_experts=8,
+config = ModelArgs(vocab_size=vocab_size,d_model=512,d_head=64,n_heads=8,n_kv_heads=2,window_size=257,n_experts=8,
                  top_k=2,n_layers=8,batch_size=batch_size,train_epochs=2,val_epochs=2,seq_len=150,max_seq_len=256,
                  clip=1,attn_dropout=0.1,dropout=0.1,max_lr=1e-3,beta1=0.9,beta2=0.999,device=device,wandb_project="mixtral",norm_eps=1e-6,attn_eps=1e-6,ffn_eps=1e-6)
 # model = tiny_mixtral(args)
@@ -84,9 +84,9 @@ def evaluate(model, dataloader, criterion):
 
 
 def train(resume_path=None,use_wandb=False):
-    model=tiny_mixtral(args=args).to(device)
-    optimizer=torch.optim.AdamW(model.parameters(),lr=args.max_lr,weight_decay=0.01)
-    scheduler=torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=args.train_epochs)
+    model=tiny_mixtral(args=config).to(device)
+    optimizer=torch.optim.AdamW(model.parameters(),lr=config.max_lr,weight_decay=0.01)
+    scheduler=torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=config.train_epochs)
     
     criterion=torch.nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
     start_step=0
@@ -106,28 +106,28 @@ def train(resume_path=None,use_wandb=False):
         for layer in model.layers:
             if hasattr(layer, 'attention') and hasattr(layer.attention, 'reset_cache'):
                 layer.attention.reset_cache()
-                print("cache reset")
+                #print("cache reset")
         
     
     if use_wandb:
-        wandb.init(project=args.wandb_project,config=args,resume="allow")
+        wandb.init(project=config.wandb_project,config=config,resume="allow")
         wandb.watch(model)
     
     step=start_step
     
-    for epoch in range(args.train_epochs):
+    for epoch in range(config.train_epochs):
         model.train()
         running_loss=0.0
             
         
-        for batch in tqdm(train_loader, desc=f'Epoch {epoch+1}/{args.train_epochs}', unit='batch'):
+        for batch in tqdm(train_loader, desc=f'Epoch {epoch+1}/{config.train_epochs}', unit='batch'):
             inputs,targets=[x.to(device) for x in batch]
             
             outputs=model(inputs,start_pos=0)
             loss=criterion(outputs.view(-1,outputs.shape[-1]),targets.view(-1))
             optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(),args.clip)
+            torch.nn.utils.clip_grad_norm_(model.parameters(),config.clip)
             optimizer.step()
             scheduler.step()
             step+=1
@@ -162,5 +162,11 @@ def train(resume_path=None,use_wandb=False):
     print("✅ Training complete.")
 
 
-train(use_wandb=True)
-            
+# train(use_wandb=True)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--checkpoint", type=str, default="models/best_model.pt", help="Path to model checkpoint")
+parser.add_argument("--usewandb", type=str, required=True, help="Prompt to generate text from")
+args = parser.parse_args()
+
+train(resume_path=args.checkpoint,usewandb=args.usewandb)
