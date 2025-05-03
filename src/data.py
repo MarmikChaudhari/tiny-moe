@@ -101,7 +101,7 @@ train_loader = DataLoader(
 
 val_loader = DataLoader(
     dataset=val_dataset,
-    batch_size=1, #for inference
+    batch_size=batch_size, #for inference
     num_workers=num_workers,
     drop_last=False,
     collate_fn=collate_fn
