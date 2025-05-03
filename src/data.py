@@ -106,4 +106,5 @@ val_loader = DataLoader(
     drop_last=False,
     collate_fn=collate_fn
 )
+print(len(val_loader))
 
