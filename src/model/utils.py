@@ -82,9 +82,7 @@ def apply_rotary_embeddings(x:torch.Tensor,freq_complex:torch.Tensor,device:str)
     """
     x_complex=torch.view_as_complex(x.float().reshape(*x.shape[:-1],-1,2)) #N,seq_len,h,head_dim/2,2 
     
-    print('x_complex',x_complex.shape)
     freq_complex=freq_complex.unsqueeze(0).unsqueeze(2) # 1,seq_len,1,head_dim/2
-    print('freq_',freq_complex.shape)
     
     x_rotated=x_complex * freq_complex #(N,seq_len,h,head_dim/2)
     x_out=torch.view_as_real(x_rotated) #(N,seq_len,h,head_dim/2,2)

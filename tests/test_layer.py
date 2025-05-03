@@ -32,8 +32,6 @@ def test_layer_output_shape():
     freqs = precompute_theta_pos_frequencies(d_head=d_head, seq_len=seq_len, device=device)
     # d_model = d_head * n_heads → so shape of x matches what attention expects
 
-    print("x:", x.shape)
-    print("freqs:", freqs.shape)
     
     output = l(x, freqs, start_pos=0)
 

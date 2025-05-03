@@ -60,7 +60,6 @@ class layer(nn.Module):
         # print(freqs_complex.shape)
 
         h=x + self.attention(self.attn_norm(x),freqs_complex=freqs_complex,start_pos=start_pos)
-        print('h')
         ffn_output,router_loss=self.ffn(self.ffn_norm(h))
         out=h+ffn_output
         
