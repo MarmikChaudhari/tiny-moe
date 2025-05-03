@@ -57,7 +57,7 @@ def evaluate(model,dataloader,criterion):
             loss=criterion(outputs.view(-1,outputs.shape[-1]),targets.view(-1))
             total_loss+=loss.item()
     
-    return total_loss/len(dataloader)
+    return total_loss
 
 
 def train(resume_path=None,use_wandb=False):
