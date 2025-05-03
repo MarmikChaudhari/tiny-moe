@@ -94,7 +94,9 @@ class AttentionWithKVCache(nn.Module):
         q = self.W_q(x).view(batch_size, seq_len, self.num_heads, self.head_dim)
         k = self.W_k(x).view(batch_size, seq_len, self.num_kv_heads, self.head_dim)
         v = self.W_v(x).view(batch_size, seq_len, self.num_kv_heads, self.head_dim)
+        
         if freqs_complex is not  None:
+           
             q=apply_rotary_embeddings(q,freqs_complex,device=self.device)
             k=apply_rotary_embeddings(k,freq_complex=freqs_complex,device=self.device)
             
@@ -114,6 +116,8 @@ class AttentionWithKVCache(nn.Module):
             k_unf=pad_k.unfold(dimension=2,size=self.window_size,step=1).transpose(3,4) #(batch_size,num_heads,seq_len,self.window_size,d_head)
             v_unf=pad_v.unfold(dimension=2,size=self.window_size,step=1).transpose(3,4) #(batch_size,num_heads,seq_len,self.window_size,d_head)
             q=q.unsqueeze(-2)
+           
+          
             attn_scores=einops.einsum(q,k_unf,'b h s w d, b h s w d -> b h s w ')
             
             mask=torch.tril(torch.ones(self.window_size,self.window_size,device=self.device))

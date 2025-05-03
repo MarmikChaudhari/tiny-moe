@@ -8,6 +8,9 @@ from model.config import ModelArgs
 from data import vocab_size,tokenizer,train_dataset,val_dataset,train_loader,val_loader,batch_size
 from tqdm import tqdm
 
+
+print(len(val_loader))
+
 device="cuda" if torch.cuda.is_available() else "cpu"
 args = ModelArgs(vocab_size=vocab_size,d_model=512,d_head=64,n_heads=8,n_kv_heads=2,window_size=257,n_experts=8,
                  top_k=2,n_layers=8,batch_size=batch_size,train_epochs=2,val_epochs=2,seq_len=150,max_seq_len=256,
@@ -36,7 +39,7 @@ def load_checkpoint(model,optimizer,scheduler,path):
     return checkpoint["step"]
 
 
-def evaluate(model,dataloader,criterion):
+def evaluate(model, dataloader, criterion):
     """
     Evaluate model on a given dataset using a given loss criterion.
 
@@ -46,18 +49,38 @@ def evaluate(model,dataloader,criterion):
         criterion: (nn.Module) the loss criterion
 
     Returns:
-        total_loss: (float) the total loss over the dataset
+        total_loss: (float) the average loss per sample over the dataset
     """
     model.eval()
-    total_loss=0
-    with torch.no_grad():
-        for batch in dataloader:
-            inputs,targets=[x.to(device) for x in batch]
-            outputs=model(inputs,start_pos=0)
-            loss=criterion(outputs.view(-1,outputs.shape[-1]),targets.view(-1))
-            total_loss+=loss.item()
+    total_loss = 0
+    total_samples = 0  # Track total samples for correct averaging
     
-    return total_loss
+    with torch.no_grad():
+        for batch in tqdm(dataloader, desc="Validating Batches"):
+            inputs, targets = [x.to(device) for x in batch]
+            
+            # Ensure batch size is 1 for inference (if required by your model)
+            if inputs.size(0) != 1:
+                raise ValueError(
+                    f"Inference requires batch_size=1, got {inputs.size(0)}. "
+                    "Modify your DataLoader or handle batching differently."
+                )
+            
+            # Forward pass
+            outputs = model(inputs, start_pos=0)
+            
+            # Calculate loss (flatten outputs and targets for cross-entropy)
+            loss = criterion(
+                outputs.view(-1, outputs.shape[-1]),  # shape: [seq_len * batch_size, vocab_size]
+                targets.view(-1)                      # shape: [seq_len * batch_size]
+            )
+            
+            # Accumulate loss and sample count
+            total_loss += loss.item() * inputs.size(0)  # weight by batch size
+            total_samples += inputs.size(0)
+    
+    # Return average loss per sample
+    return total_loss / total_samples if total_samples > 0 else 0.0
 
 
 def train(resume_path=None,use_wandb=False):
@@ -118,7 +141,9 @@ def train(resume_path=None,use_wandb=False):
                 })
             
             if step%100==0:
+                print(len(val_loader))
                 val_loss=evaluate(model,val_loader,criterion)
+                model.train()
                 if use_wandb:
                     wandb.log({
                         "val/loss":val_loss,
@@ -127,7 +152,7 @@ def train(resume_path=None,use_wandb=False):
                     })
                 if val_loss<best_val_loss:
                     best_val_loss=val_loss
-                    save_checkpoint(model,optimizer,scheduler,step,"models/last_epoch.pt")
+                    save_checkpoint(model,optimizer,scheduler,step,"models/best_epoch.pt")
                     print("best model saved at step",step)
     
 
