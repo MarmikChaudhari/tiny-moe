@@ -150,9 +150,11 @@ def train(resume_path=None,use_wandb=False):
                         "epoch":epoch,
                         "step":step,
                     })
+                # if best_val_loss is None:
+                #     best_val_loss=val_loss
                 if val_loss<best_val_loss:
                     best_val_loss=val_loss
-                    save_checkpoint(model,optimizer,scheduler,step,"models/best_epoch.pt")
+                    save_checkpoint(model,optimizer,scheduler,step,"models/best_epoch.pt",best_val_loss=best_val_loss)
                     print("best model saved at step",step)
     
 
@@ -169,4 +171,4 @@ parser.add_argument("--checkpoint", type=str, default="models/best_model.pt", he
 parser.add_argument("--usewandb", type=str, required=True, help="Prompt to generate text from")
 args = parser.parse_args()
 
-train(resume_path=args.checkpoint,usewandb=args.usewandb)
+train(resume_path=args.checkpoint,use_wandb=args.usewandb)

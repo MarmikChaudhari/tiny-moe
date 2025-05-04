@@ -53,7 +53,7 @@ def generate_text(prompt, model, tokenizer, max_new_tokens=100):
 
 # if __name__ == "__main__":
 parser = argparse.ArgumentParser()
-parser.add_argument("--checkpoint", type=str, default="models/best_model.pt", help="Path to model checkpoint")
+parser.add_argument("--checkpoint", type=str, default="models/best_epoch.pt", help="Path to model checkpoint")
 parser.add_argument("--prompt", type=str, required=True, help="Prompt to generate text from")
 parser.add_argument("--max_new_tokens", type=int, default=100, help="Max tokens to generate")
 args = parser.parse_args()
