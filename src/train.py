@@ -168,7 +168,7 @@ def train(resume_path=None,use_wandb=False):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--checkpoint", type=str, default="models/best_model.pt", help="Path to model checkpoint")
-parser.add_argument("--usewandb", type=str, required=True, help="Prompt to generate text from")
+parser.add_argument("--usewandb", action="store_true", default=False, help="Use Weights & Biases logging")
 args = parser.parse_args()
 
 train(resume_path=args.checkpoint,use_wandb=args.usewandb)
