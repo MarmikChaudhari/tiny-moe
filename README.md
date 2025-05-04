@@ -29,6 +29,10 @@ This project is a simplified re-implementation of the **Mixtral of Experts** (Mo
 This minimal implementation is suitable for understanding how modern LLM optimizations work, especially in resource-constrained environments or for academic exploration.
 
 ---
+Example of a generated text:
+```
+Once upon a time blue came home youo noise down lots it riendsoo thoughto some you you you themeed back you you you you
+```
 
 ## 📊 Training Insights
 
