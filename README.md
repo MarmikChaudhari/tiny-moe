@@ -1,7 +1,72 @@
-# tiny-mixtral
+# tiny-mixtral 175M MoE
 
 
+---
 
+## 🧠 About Tiny-Mixtral
+
+This project is a simplified re-implementation of the **Mixtral of Experts** (MoE) architecture, inspired by the paper *"Mixtral of Experts: Sparse Mixture of Experts for Efficient Language Modeling"*. It aims to reproduce core ideas like sparse routing, expert selection, and caching strategies in a lightweight and educational way.
+
+### ⚙️ Core Concepts
+
+- **Mixture of Experts (MoE):**
+  Instead of using all model parameters at each step, only a subset of "experts" (typically 2 out of 8) are activated per token. This significantly reduces compute while keeping performance high.
+
+- **Gated Query Attention (GQA):**
+  An optimization of multi-query attention, where each head shares key and value projections, but allows for more nuanced gating of different experts based on the query.
+
+- **Key-Value (KV) Caching:**
+  Speeds up autoregressive generation by storing key and value tensors from previous forward passes, avoiding redundant computation during inference.
+
+- **Sliding Window Attention:**
+  Replaces full attention with local attention, limiting context to a fixed window size. This improves memory efficiency and runtime, especially for long sequences.
+
+- **Rolling Buffer KV Cache:**
+  Implements a memory-efficient rolling cache that discards the oldest tokens as new ones come in, while maintaining relevant recent context for the model.
+
+---
+
+This minimal implementation is suitable for understanding how modern LLM optimizations work, especially in resource-constrained environments or for academic exploration.
+
+---
+
+## 📊 Training Insights
+
+### 📁 Dataset
+Training was done using the [TinyStories](https://huggingface.co/datasets/tiny_stories) dataset available on Hugging Face.
+
+### ⚙️ Hardware
+- **GPU Used:** NVIDIA Tesla P100  
+- **Platform:** Kaggle Notebooks
+
+### 📈 First 2 Epochs: Learning Rate & Training Loss
+
+The plot below shows how the training learning rate and loss behaved during the first two epochs:
+
+![Training Curve](static/first_2_epochs.png)
+
+## 🔧 Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/kabir2505/tiny-mixtral
+cd tiny-mixtral
+# Install dependencies
+pip3 install -r requirements.txt
+# Log in to Hugging Face
+huggingface-cli login
+# Log in to Weights & Biases (W&B)
+import wandb
+wandb.login()
+#train
+python train.py --usewandb
+#resume training from a checkpoint
+python train.py --usewandb --checkpoint models/best_epoch.pt
+#generate
+python generate_text.py --prompt "Once upon a time" --max_new_tokens 20
+
+```
+---
 
 ### Parameter Calculation for MoE Transformer (Mixtral-like)
 
