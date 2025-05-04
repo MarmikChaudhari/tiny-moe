@@ -12,7 +12,7 @@ dataset
 tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-small")  # or "meta-llama/Llama-2-7b"
 tokens = tokenizer("The cat sat on the mat.", return_tensors="pt")
 train_data=dataset[:50000]
-val_data=dataset[50000:52000]
+val_data=dataset[50000:51000]
 
 vocab_size=tokenizer.vocab_size
 class Tiny_dataset(Dataset):

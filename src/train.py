@@ -140,7 +140,7 @@ def train(resume_path=None,use_wandb=False):
                     "step":step,
                 })
             
-            if step%100==0:
+            if step%1000==0:
                 print(len(val_loader))
                 val_loss=evaluate(model,val_loader,criterion)
                 model.train()
