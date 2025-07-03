@@ -25,13 +25,16 @@ class tiny_mixtral(nn.Module):
         batch_size,seq_len=x.shape
         h=self.tok_embedding(x)
         freqs_complex=self.freqs_complex[start_pos:start_pos+seq_len]
+        total_load_balancing_loss = 0
+        
         for layer in self.layers:
-            h=layer(h,freqs_complex=freqs_complex,start_pos=start_pos)
+            h, load_balancing_loss = layer(h,freqs_complex=freqs_complex,start_pos=start_pos)
+            total_load_balancing_loss += load_balancing_loss
         
         h=self.norm(h)
         out=self.output(h).float()
         
-        return out
+        return out, total_load_balancing_loss
         
 
     

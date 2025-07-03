@@ -12,8 +12,8 @@ import argparse
 print(len(val_loader))
 
 device="cuda" if torch.cuda.is_available() else "cpu"
-config = ModelArgs(vocab_size=vocab_size,d_model=512,d_head=64,n_heads=8,n_kv_heads=2,window_size=257,n_experts=8,
-                 top_k=2,n_layers=8,batch_size=batch_size,train_epochs=2,val_epochs=2,seq_len=150,max_seq_len=256,
+config = ModelArgs(vocab_size=vocab_size,d_model=768,d_head=96,n_heads=8,n_kv_heads=2,window_size=257,n_experts=8,
+                 top_k=2,n_layers=2,batch_size=batch_size,train_epochs=1,val_epochs=2,seq_len=150,max_seq_len=512,
                  clip=1,attn_dropout=0.1,dropout=0.1,max_lr=1e-3,beta1=0.9,beta2=0.999,device=device,wandb_project="mixtral",norm_eps=1e-6,attn_eps=1e-6,ffn_eps=1e-6)
 # model = tiny_mixtral(args)
 
@@ -67,13 +67,15 @@ def evaluate(model, dataloader, criterion):
                 )
             
             # Forward pass
-            outputs = model(inputs, start_pos=0)
+            outputs, load_balancing_loss = model(inputs, start_pos=0)
             
             # Calculate loss (flatten outputs and targets for cross-entropy)
-            loss = criterion(
+            ce_loss = criterion(
                 outputs.view(-1, outputs.shape[-1]),  # shape: [seq_len * batch_size, vocab_size]
                 targets.view(-1)                      # shape: [seq_len * batch_size]
             )
+            router_weight = 0.01
+            loss = ce_loss + router_weight * load_balancing_loss
             
             # Accumulate loss and sample count
             total_loss += loss.item() * inputs.size(0)  # weight by batch size
@@ -123,8 +125,10 @@ def train(resume_path=None,use_wandb=False):
         for batch in tqdm(train_loader, desc=f'Epoch {epoch+1}/{config.train_epochs}', unit='batch'):
             inputs,targets=[x.to(device) for x in batch]
             
-            outputs=model(inputs,start_pos=0)
-            loss=criterion(outputs.view(-1,outputs.shape[-1]),targets.view(-1))
+            outputs, load_balancing_loss = model(inputs,start_pos=0)
+            ce_loss = criterion(outputs.view(-1,outputs.shape[-1]),targets.view(-1))
+            router_weight = 0.01
+            loss = ce_loss + router_weight * load_balancing_loss
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(),config.clip)
@@ -134,8 +138,10 @@ def train(resume_path=None,use_wandb=False):
             running_loss+=loss.item()
             if use_wandb:
                 wandb.log({
-                    "train/loss":loss.item(),
+                    "train/total_loss":loss.item(),
+                    "train/ce_loss":ce_loss.item(),
                     "train/lr":scheduler.get_last_lr()[0],
+                    "train/load_balancing_loss":load_balancing_loss.item(),
                     "epoch":epoch,
                     "step":step,
                 })

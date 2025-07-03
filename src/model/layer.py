@@ -54,7 +54,7 @@ class layer(nn.Module):
             start_pos (int): The starting position of the sequence.
 
         Returns:
-            torch.Tensor: The output tensor of shape (batch_size, seq_len, d_model).
+            tuple: (output tensor of shape (batch_size, seq_len, d_model), load_balancing_loss)
         """
         # print(x.shape)
         # print(freqs_complex.shape)
@@ -64,7 +64,7 @@ class layer(nn.Module):
         out=h+ffn_output
         
         
-        return out
+        return out, router_loss
         
         
         
