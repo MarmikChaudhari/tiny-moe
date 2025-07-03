@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 dataset=load_dataset("roneneldan/TinyStories",split="train[:55000]")
 dataset
-tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-small")  # or "meta-llama/Llama-2-7b"
+tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-small")  # or "meta-llama/Llama-2-7b", use gpt2 tokenizer (50k vocab size basically)
 tokens = tokenizer("The cat sat on the mat.", return_tensors="pt")
 train_data=dataset[:50000]
 val_data=dataset[50000:55000]

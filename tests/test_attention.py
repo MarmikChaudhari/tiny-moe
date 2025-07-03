@@ -1,6 +1,6 @@
 import torch
-from model.attention import AttentionWithKVCache
-from model.utils import precompute_theta_pos_frequencies
+from src.attention import AttentionWithKVCache
+from src.utils import precompute_theta_pos_frequencies
 
 def test_attention_output_shape():
     model = AttentionWithKVCache(dim=32, num_heads=8, window_size=5,device="cpu")

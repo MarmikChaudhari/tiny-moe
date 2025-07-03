@@ -3,8 +3,11 @@ import math
 import torch
 import wandb
 
-from model.model import tiny_mixtral
-from model.config import ModelArgs
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from models.dense.model import tiny_gpt
+from models.dense.config import ModelArgs
 from data import vocab_size,tokenizer,train_dataset,val_dataset,train_loader,val_loader,batch_size
 from tqdm import tqdm
 import argparse
@@ -15,7 +18,6 @@ device="cuda" if torch.cuda.is_available() else "cpu"
 config = ModelArgs(vocab_size=vocab_size,d_model=768,d_head=96,n_heads=8,n_kv_heads=2,window_size=257,n_experts=8,
                  top_k=2,n_layers=2,batch_size=batch_size,train_epochs=1,val_epochs=2,seq_len=150,max_seq_len=512,
                  clip=1,attn_dropout=0.1,dropout=0.1,max_lr=1e-3,beta1=0.9,beta2=0.999,device=device,wandb_project="mixtral",norm_eps=1e-6,attn_eps=1e-6,ffn_eps=1e-6)
-# model = tiny_mixtral(args)
 
 
 def save_checkpoint(model,optimizer,scheduler,step,path,best_val_loss=None):
@@ -66,16 +68,14 @@ def evaluate(model, dataloader, criterion):
                     "Modify your DataLoader or handle batching differently."
                 )
             
-            # Forward pass
-            outputs, load_balancing_loss = model(inputs, start_pos=0)
+            # Forward pass - dense model only returns outputs, no load balancing loss
+            outputs = model(inputs, start_pos=0)
             
             # Calculate loss (flatten outputs and targets for cross-entropy)
-            ce_loss = criterion(
+            loss = criterion(
                 outputs.view(-1, outputs.shape[-1]),  # shape: [seq_len * batch_size, vocab_size]
                 targets.view(-1)                      # shape: [seq_len * batch_size]
             )
-            router_weight = 0.01
-            loss = ce_loss + router_weight * load_balancing_loss
             
             # Accumulate loss and sample count
             total_loss += loss.item() * inputs.size(0)  # weight by batch size
@@ -86,7 +86,7 @@ def evaluate(model, dataloader, criterion):
 
 
 def train(resume_path=None,use_wandb=False):
-    model=tiny_mixtral(args=config).to(device)
+    model=tiny_gpt(args=config).to(device)
     optimizer=torch.optim.AdamW(model.parameters(),lr=config.max_lr,weight_decay=0.01)
     scheduler=torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=config.train_epochs)
     
@@ -125,10 +125,10 @@ def train(resume_path=None,use_wandb=False):
         for batch in tqdm(train_loader, desc=f'Epoch {epoch+1}/{config.train_epochs}', unit='batch'):
             inputs,targets=[x.to(device) for x in batch]
             
-            outputs, load_balancing_loss = model(inputs,start_pos=0)
-            ce_loss = criterion(outputs.view(-1,outputs.shape[-1]),targets.view(-1))
-            router_weight = 0.01
-            loss = ce_loss + router_weight * load_balancing_loss
+            # Dense model only returns outputs, no load balancing loss
+            outputs = model(inputs,start_pos=0)
+            loss = criterion(outputs.view(-1,outputs.shape[-1]),targets.view(-1))
+            
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(),config.clip)
@@ -138,10 +138,8 @@ def train(resume_path=None,use_wandb=False):
             running_loss+=loss.item()
             if use_wandb:
                 wandb.log({
-                    "train/total_loss":loss.item(),
-                    "train/ce_loss":ce_loss.item(),
+                    "train/loss":loss.item(),
                     "train/lr":scheduler.get_last_lr()[0],
-                    "train/load_balancing_loss":load_balancing_loss.item(),
                     "epoch":epoch,
                     "step":step,
                 })

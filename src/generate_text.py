@@ -1,7 +1,7 @@
 import torch
 from data import tokenizer
-from model.model import tiny_mixtral  # Update path if different
-from model.config import ModelArgs
+from models.moe.model import tiny_mixtral  # Update path if different
+from models.moe.config import ModelArgs
 from data import vocab_size,tokenizer,train_dataset,val_dataset,train_loader,val_loader,batch_size
 import argparse
 import os

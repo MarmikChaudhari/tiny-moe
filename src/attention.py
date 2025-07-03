@@ -3,9 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import einops
-from model.config import ModelArgs
-from model.utils import apply_rotary_embeddings
-device=ModelArgs.device
+from utils import apply_rotary_embeddings
 
 import math
 import torch.nn.functional as F

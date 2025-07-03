@@ -3,7 +3,7 @@ import pytest
 from torch import nn
 from torch.nn import functional as F
 
-from model.moe import SparseMOE, SwiGLUFFN
+from src.models.moe import SparseMOE, SwiGLUFFN
 # === SwiGLUFFN tests ===
 
 def test_swigluffn_output_shape():

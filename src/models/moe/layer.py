@@ -1,9 +1,12 @@
 import torch
 from torch import nn
-from model.attention import AttentionWithKVCache
-from model.moe import SparseMOE
-from model.utils import RMSNorm
-from model.utils import clones,SubLayerConnection
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from attention import AttentionWithKVCache
+from .moe import SparseMOE
+from utils import RMSNorm
+from utils import clones,SubLayerConnection
 class layer(nn.Module):
     def __init__(self,d_model:int,d_head:int,n_heads:int,n_kv_heads:int,window_size:int,num_experts:int,top_k:int,device,max_seq_len:int,attn_eps:float,dropout:float,ffn_eps:float=1e-6):
         """

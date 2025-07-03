@@ -1,7 +1,5 @@
 .venv/
 venv/
-src/models/
-src/models
-src/__pycache__/
+__pycache__/
 wandb/
-src/model/__pycache__/
+tests/__pycache__/
