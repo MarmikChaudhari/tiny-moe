@@ -6,63 +6,70 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
-n_samples = 5
+n_samples = 5 # this relates to number of toks to train on
 test_split = 0.2
-num_workers = 0
+num_workers = 2
 batch_size = 8
+vocab_size   = None
+tokenizer    = None
+train_loader = None
+val_loader   = None
 
 # dataset=load_dataset("roneneldan/TinyStories",split="train[:55000]")
 # train_data=dataset[:50000]
 # val_data=dataset[50000:55000]
 
-# get the three subsets of arxiv, code and simple stories
-arxiv_url = [
-    "https://olmo-data.org/dolma-v1_7/redpajama-arxiv/arxiv-0000.json.gz",
-]
-code_url = ["https://olmo-data.org/dolma-v1_7/starcoder/starcoder-0000.json.gz"]
-simeple_stories_ds = load_dataset("SimpleStories/SimpleStories", split="train", streaming=True)
 
-arxiv_ds = load_dataset(
-    "json",
-    data_files=arxiv_url,
-    split="train",
-    streaming=True,
-)
-code_ds = load_dataset(
-    "json",
-    data_files=code_url,
-    split="train",
-    streaming=True,
-)
+def get_dataset_tokenizer(n_samples=5,test_split=0.2):
+    # get the three subsets of arxiv, code and simple stories
+    arxiv_url = [
+        "https://olmo-data.org/dolma-v1_7/redpajama-arxiv/arxiv-0000.json.gz",
+    ]
+    code_url = ["https://olmo-data.org/dolma-v1_7/starcoder/starcoder-0000.json.gz"]
+    simeple_stories_ds = load_dataset("SimpleStories/SimpleStories", split="train", streaming=True)
 
-datasets = [
-    Dataset.from_list([{"text": item["story"]} for item in simeple_stories_ds.take(n_samples)]),
-    Dataset.from_list([{"text": item["text"]} for item in arxiv_ds.take(n_samples)]),
-    Dataset.from_list([{"text": item["text"]} for item in code_ds.take(n_samples)])
-]
+    arxiv_ds = load_dataset(
+        "json",
+        data_files=arxiv_url,
+        split="train",
+        streaming=True,
+    )
+    code_ds = load_dataset(
+        "json",
+        data_files=code_url,
+        split="train",
+        streaming=True,
+    )
 
-# combine
-combined_ds = concatenate_datasets(datasets)
+    datasets = [
+        Dataset.from_list([{"text": item["story"]} for item in simeple_stories_ds.take(n_samples)]),
+        Dataset.from_list([{"text": item["text"]} for item in arxiv_ds.take(n_samples)]),
+        Dataset.from_list([{"text": item["text"]} for item in code_ds.take(n_samples)])
+    ]
 
-print(f"total items: {len(combined_ds)}")
+    # combine
+    combined_ds = concatenate_datasets(datasets)
 
-# train/val split
-train_test_split = combined_ds.train_test_split(test_size=test_split, seed=42)
-train_dataset = train_test_split['train']
-val_dataset = train_test_split['test']
+    print(f"total items: {len(combined_ds)}")
 
-# convert to dictionary format with "text" key
-train_data = {"text": train_dataset["text"]} # the value of this dict is a list of the text samples
-val_data = {"text": val_dataset["text"]}
+    # train/val split
+    train_test_split = combined_ds.train_test_split(test_size=test_split, seed=42)
+    train_dataset = train_test_split['train']
+    val_dataset = train_test_split['test']
 
-# print(f"train items: {len(train_data['text'])}")
-# print(f"val items: {len(val_data['text'])}")
+    # convert to dictionary format with "text" key
+    train_data = {"text": train_dataset["text"]} # the value of this dict is a list of the text samples
+    val_data = {"text": val_dataset["text"]}
 
+    # print(f"train items: {len(train_data['text'])}")
+    # print(f"val items: {len(val_data['text'])}")
 
-tokenizer = AutoTokenizer.from_pretrained("gpt2", legacy=False)  # or "meta-llama/Llama-2-7b", use gpt2 tokenizer (50k vocab size basically)
-# set pad_token to eos_token since GPT-2 doesn't have a dedicated pad token
-tokenizer.pad_token = tokenizer.eos_token
-vocab_size=tokenizer.vocab_size
+    tokenizer = AutoTokenizer.from_pretrained("gpt2", legacy=False)  # or "meta-llama/Llama-2-7b", use gpt2 tokenizer (50k vocab size basically)
+    # set pad_token to eos_token since GPT-2 doesn't have a dedicated pad token
+    tokenizer.pad_token = tokenizer.eos_token
+    vocab_size=tokenizer.vocab_size
+
+    return train_data, val_data, tokenizer, vocab_size
 
 
 class Tiny_dataset(torchDataset):
@@ -109,42 +116,79 @@ class Tiny_dataset(torchDataset):
 
     def __len__(self):
         return len(self.encoded_texts)
-  
+
+# pad_token_id = None
+
+def init_dataset(n_samples=5, test_split=0.2):
+    train_data, val_data, tokenizer, vocab_size = get_dataset_tokenizer(n_samples, test_split)
+    train_dataset=Tiny_dataset(data=train_data,tokenizer=tokenizer)
+    val_dataset=Tiny_dataset(data=val_data,tokenizer=tokenizer)
+    return train_dataset, val_dataset, tokenizer, vocab_size
 
 
-train_dataset=Tiny_dataset(data=train_data,tokenizer=tokenizer)
-val_dataset=Tiny_dataset(data=val_data,tokenizer=tokenizer)
-
-
-def collate_fn(batch):
-    """
-    Custom collate function to pad sequences to the same length.
-    """
-    # Extract 'input_ids' and 'labels' tensors from the batch
-    input_ids = [item['input_ids'] for item in batch]
-    labels = [item['labels'] for item in batch]
+class CollateFunction:
+    def __init__(self, pad_token_id):
+        self.pad_token_id = pad_token_id
     
-    # Pad the input_ids and labels separately
-    padded_input_ids = pad_sequence(input_ids, batch_first=True, padding_value=tokenizer.pad_token_id)
-    padded_labels = pad_sequence(labels, batch_first=True, padding_value=tokenizer.pad_token_id)
+    def __call__(self, batch):
+        """
+        custom collate function to pad sequences to the same length.
+        """
+        # Extract 'input_ids' and 'labels' tensors from the batch
+        input_ids = [item['input_ids'] for item in batch]
+        labels = [item['labels'] for item in batch]
+        
+        # Pad the input_ids and labels separately
+        padded_input_ids = pad_sequence(input_ids, batch_first=True, padding_value=self.pad_token_id)
+        padded_labels = pad_sequence(labels, batch_first=True, padding_value=self.pad_token_id)
 
-    return padded_input_ids, padded_labels
+        return padded_input_ids, padded_labels
+    
 
-train_loader = DataLoader(
-    dataset=train_dataset,
-    batch_size=batch_size,
-    shuffle=True,
-    num_workers=num_workers,
-    drop_last=False,
-    collate_fn=collate_fn
-)
+if __name__ == "__main__":
+    # only runs when script executed directly
+    train_dataset, val_dataset, tokenizer, vocab_size = init_dataset()
+    collate_fn = CollateFunction(pad_token_id=tokenizer.pad_token_id)
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        drop_last=False,
+        collate_fn=collate_fn
+    )
 
-val_loader = DataLoader(
-    dataset=val_dataset,
-    batch_size=1, #for inference
-    num_workers=num_workers,
-    drop_last=False,
-    collate_fn=collate_fn
-)
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=1, #for inference
+        num_workers=num_workers,
+        drop_last=False,
+        collate_fn=collate_fn
+        )
 
-print(f"number of items in val_loader: {len(val_loader)}")
+    print(f"number of items in val_loader: {len(val_loader)}")
+
+else:
+    import multiprocessing
+    if multiprocessing.current_process().name == 'MainProcess':
+        # only main process creates datasets
+        train_dataset, val_dataset, tokenizer, vocab_size = init_dataset()
+        collate_fn = CollateFunction(pad_token_id=tokenizer.pad_token_id)
+        # create data loaders
+        train_loader = DataLoader(
+            dataset=train_dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            drop_last=False,
+            collate_fn=collate_fn
+        )
+        
+        val_loader = DataLoader(
+            dataset=val_dataset,
+            batch_size=1,
+            num_workers=num_workers,
+            drop_last=False,
+            collate_fn=collate_fn
+        )
+        print(f"number of items in val_loader: {len(val_loader)}")

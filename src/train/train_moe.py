@@ -2,23 +2,21 @@ import os
 import math
 import torch
 import wandb
-
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.moe.model import tiny_mixtral
 from models.moe.config import ModelArgs
-from data import vocab_size,tokenizer,train_dataset,val_dataset,train_loader,val_loader,batch_size
+from data import vocab_size,tokenizer,train_loader,val_loader,batch_size
 from tqdm import tqdm
 import argparse
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-print(len(val_loader))
 
 device="cuda" if torch.cuda.is_available() else "cpu"
 config = ModelArgs(vocab_size=vocab_size,d_model=768,d_head=96,n_heads=8,n_kv_heads=2,window_size=257,n_experts=8,
                  top_k=2,n_layers=2,batch_size=batch_size,train_epochs=1,val_epochs=2,seq_len=150,max_seq_len=512,
                  clip=1,attn_dropout=0.1,dropout=0.1,max_lr=1e-3,beta1=0.9,beta2=0.999,device=device,wandb_project="mixtral",norm_eps=1e-6,attn_eps=1e-6,ffn_eps=1e-6)
-# model = tiny_mixtral(args)
 
 
 def save_checkpoint(model,optimizer,scheduler,step,path,best_val_loss=None):
@@ -173,11 +171,18 @@ def train(resume_path=None,use_wandb=False):
     print("✅ Training complete.")
 
 
-# train(use_wandb=True)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--checkpoint", type=str, default="trained_models/best_model_dense.pt", help="Path to model checkpoint")
+    parser.add_argument("--usewandb", action="store_true", default=False, help="Use Weights & Biases logging")
+    args = parser.parse_args()
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--checkpoint", type=str, default="trained_models/best_model_moe.pt", help="Path to model checkpoint")
-parser.add_argument("--usewandb", action="store_true", default=False, help="Use Weights & Biases logging")
-args = parser.parse_args()
+    train(resume_path=args.checkpoint,use_wandb=args.usewandb)
 
-train(resume_path=args.checkpoint,use_wandb=args.usewandb)
+
+# parser = argparse.ArgumentParser()
+# parser.add_argument("--checkpoint", type=str, default="trained_models/best_model_dense.pt", help="Path to model checkpoint")
+# parser.add_argument("--usewandb", action="store_true", default=False, help="Use Weights & Biases logging")
+# args = parser.parse_args()
+
+# train(resume_path=args.checkpoint,use_wandb=args.usewandb)
