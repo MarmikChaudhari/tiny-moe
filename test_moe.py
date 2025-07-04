@@ -3,7 +3,7 @@ import pytest
 from torch import nn
 from torch.nn import functional as F
 
-from src.models.moe import SparseMOE, SwiGLUFFN
+from src.models.moe.moe import SparseMOE, SwiGLUFFN
 # === SwiGLUFFN tests ===
 
 def test_swigluffn_output_shape():
@@ -68,3 +68,34 @@ def test_sparsemoe_expert_usage():
     with torch.no_grad():
         _, loss = model(x)
         assert loss.item() > 0, "Load balancing loss should be non-zero to encourage expert diversity"
+
+def test_sparsemoe_d_hidden_div_topk():
+    d_model = 12
+    top_k = 3
+    num_experts = 4
+    # d_hidden should be d_model // top_k
+    expected_d_hidden = d_model // top_k
+    model = SparseMOE(d_model=d_model, d_hidden=expected_d_hidden, num_experts=num_experts, top_k=top_k)
+    # Check that each expert has the correct hidden dim
+    for expert in model.experts:
+        assert expert.w_1.in_features == d_model
+        assert expert.w_1.out_features == expected_d_hidden
+        assert expert.w_2.in_features == d_model
+        assert expert.w_2.out_features == expected_d_hidden
+        assert expert.out.in_features == expected_d_hidden
+        assert expert.out.out_features == d_model
+    # Forward pass sanity check
+    x = torch.randn(2, 5, d_model)
+    out, loss = model(x)
+    assert out.shape == x.shape, "Output shape should match input shape"
+    assert isinstance(loss, torch.Tensor), "Loss should be a tensor"
+
+
+test_swigluffn_gradients()
+test_sparsemoe_output_shape()
+test_sparsemoe_gradients()
+test_sparsemoe_topk_behavior()
+test_sparsemoe_router_softmax_distribution()
+test_sparsemoe_expert_usage()
+
+print("All tests passed")
