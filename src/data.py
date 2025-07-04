@@ -6,7 +6,9 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
-n_samples = 1000 # this relates to number of toks to train on
+n_samples_simple_stories = 800_000 
+n_samples_code = 230_000 
+n_samples_arxiv = 22_000 # down sample as avg sample length of arxiv is way higher than other subsets
 test_split = 0.2
 num_workers = 4
 batch_size = 8
@@ -20,10 +22,11 @@ val_loader   = None
 # val_data=dataset[50000:55000]
 
 
-def get_dataset_tokenizer(n_samples=n_samples,test_split=test_split):
+def get_dataset_tokenizer(n_samples_simple_stories=n_samples_simple_stories,n_samples_code=n_samples_code,n_samples_arxiv=n_samples_arxiv,test_split=test_split):
     # get the three subsets of arxiv, code and simple stories
     arxiv_url = [
-        "https://olmo-data.org/dolma-v1_7/redpajama-arxiv/arxiv-0000.json.gz",
+        f"https://olmo-data.org/dolma-v1_7/redpajama-arxiv/arxiv-{i:04d}.json.gz" for i in range(2)
+        # "https://olmo-data.org/dolma-v1_7/redpajama-arxiv/arxiv-0000.json.gz",
     ]
     code_url = ["https://olmo-data.org/dolma-v1_7/starcoder/starcoder-0000.json.gz"]
     simeple_stories_ds = load_dataset("SimpleStories/SimpleStories", split="train", streaming=True)
@@ -41,10 +44,29 @@ def get_dataset_tokenizer(n_samples=n_samples,test_split=test_split):
         streaming=True,
     )
 
+    # Manual iteration with progress bars
+    simple_stories_data = []
+    for i, item in enumerate(tqdm(simeple_stories_ds, desc="SimpleStories", total=n_samples_simple_stories)):
+        if i >= n_samples_simple_stories:
+            break
+        simple_stories_data.append({"text": item["story"]})
+    
+    arxiv_data = []
+    for i, item in enumerate(tqdm(arxiv_ds, desc="Arxiv", total=n_samples_arxiv)):
+        if i >= n_samples_arxiv:
+            break
+        arxiv_data.append({"text": item["text"]})
+    
+    code_data = []
+    for i, item in enumerate(tqdm(code_ds, desc="Code", total=n_samples_code)):
+        if i >= n_samples_code:
+            break
+        code_data.append({"text": item["text"]})
+
     datasets = [
-        Dataset.from_list([{"text": item["story"]} for item in simeple_stories_ds.take(n_samples)]),
-        Dataset.from_list([{"text": item["text"]} for item in arxiv_ds.take(n_samples)]),
-        Dataset.from_list([{"text": item["text"]} for item in code_ds.take(n_samples)])
+        Dataset.from_list([{"text": item["story"]} for item in simeple_stories_ds.take(n_samples_simple_stories)]),
+        Dataset.from_list([{"text": item["text"]} for item in arxiv_ds.take(n_samples_arxiv)]),
+        Dataset.from_list([{"text": item["text"]} for item in code_ds.take(n_samples_code)])
     ]
 
     # combine
@@ -119,8 +141,8 @@ class Tiny_dataset(torchDataset):
 
 # pad_token_id = None
 
-def init_dataset(n_samples=n_samples, test_split=test_split):
-    train_data, val_data, tokenizer, vocab_size = get_dataset_tokenizer(n_samples, test_split)
+def init_dataset(n_samples_simple_stories=n_samples_simple_stories,n_samples_code=n_samples_code,n_samples_arxiv=n_samples_arxiv,test_split=test_split):
+    train_data, val_data, tokenizer, vocab_size = get_dataset_tokenizer(n_samples_simple_stories, n_samples_code, n_samples_arxiv, test_split)
     train_dataset=Tiny_dataset(data=train_data,tokenizer=tokenizer)
     val_dataset=Tiny_dataset(data=val_data,tokenizer=tokenizer)
     return train_dataset, val_dataset, tokenizer, vocab_size
@@ -147,7 +169,7 @@ class CollateFunction:
 
 if __name__ == "__main__":
     # only runs when script executed directly
-    train_dataset, val_dataset, tokenizer, vocab_size = init_dataset(n_samples=n_samples, test_split=test_split)
+    train_dataset, val_dataset, tokenizer, vocab_size = init_dataset(n_samples_simple_stories=n_samples_simple_stories,n_samples_code=n_samples_code,n_samples_arxiv=n_samples_arxiv,test_split=test_split)
     collate_fn = CollateFunction(pad_token_id=tokenizer.pad_token_id)
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -172,7 +194,7 @@ else:
     import multiprocessing
     if multiprocessing.current_process().name == 'MainProcess':
         # only main process creates datasets
-        train_dataset, val_dataset, tokenizer, vocab_size = init_dataset(n_samples=n_samples, test_split=test_split)
+        train_dataset, val_dataset, tokenizer, vocab_size = init_dataset(n_samples_simple_stories=n_samples_simple_stories,n_samples_code=n_samples_code,n_samples_arxiv=n_samples_arxiv,test_split=test_split)
         collate_fn = CollateFunction(pad_token_id=tokenizer.pad_token_id)
         # create data loaders
         train_loader = DataLoader(
