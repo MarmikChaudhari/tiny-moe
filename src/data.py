@@ -9,7 +9,9 @@ from torch.utils.data import DataLoader
 
 dataset=load_dataset("roneneldan/TinyStories",split="train[:55000]")
 dataset
-tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-small")  # or "meta-llama/Llama-2-7b", use gpt2 tokenizer (50k vocab size basically)
+tokenizer = AutoTokenizer.from_pretrained("gpt2", legacy=False)  # or "meta-llama/Llama-2-7b", use gpt2 tokenizer (50k vocab size basically)
+# Set pad_token to eos_token since GPT-2 doesn't have a dedicated pad token
+tokenizer.pad_token = tokenizer.eos_token
 tokens = tokenizer("The cat sat on the mat.", return_tensors="pt")
 train_data=dataset[:50000]
 val_data=dataset[50000:55000]
