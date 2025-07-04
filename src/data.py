@@ -6,9 +6,9 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
-n_samples = 5 # this relates to number of toks to train on
+n_samples = 1000 # this relates to number of toks to train on
 test_split = 0.2
-num_workers = 2
+num_workers = 4
 batch_size = 8
 vocab_size   = None
 tokenizer    = None
@@ -20,7 +20,7 @@ val_loader   = None
 # val_data=dataset[50000:55000]
 
 
-def get_dataset_tokenizer(n_samples=5,test_split=0.2):
+def get_dataset_tokenizer(n_samples=n_samples,test_split=test_split):
     # get the three subsets of arxiv, code and simple stories
     arxiv_url = [
         "https://olmo-data.org/dolma-v1_7/redpajama-arxiv/arxiv-0000.json.gz",
@@ -119,7 +119,7 @@ class Tiny_dataset(torchDataset):
 
 # pad_token_id = None
 
-def init_dataset(n_samples=5, test_split=0.2):
+def init_dataset(n_samples=n_samples, test_split=test_split):
     train_data, val_data, tokenizer, vocab_size = get_dataset_tokenizer(n_samples, test_split)
     train_dataset=Tiny_dataset(data=train_data,tokenizer=tokenizer)
     val_dataset=Tiny_dataset(data=val_data,tokenizer=tokenizer)
@@ -147,7 +147,7 @@ class CollateFunction:
 
 if __name__ == "__main__":
     # only runs when script executed directly
-    train_dataset, val_dataset, tokenizer, vocab_size = init_dataset()
+    train_dataset, val_dataset, tokenizer, vocab_size = init_dataset(n_samples=n_samples, test_split=test_split)
     collate_fn = CollateFunction(pad_token_id=tokenizer.pad_token_id)
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -172,7 +172,7 @@ else:
     import multiprocessing
     if multiprocessing.current_process().name == 'MainProcess':
         # only main process creates datasets
-        train_dataset, val_dataset, tokenizer, vocab_size = init_dataset()
+        train_dataset, val_dataset, tokenizer, vocab_size = init_dataset(n_samples=n_samples, test_split=test_split)
         collate_fn = CollateFunction(pad_token_id=tokenizer.pad_token_id)
         # create data loaders
         train_loader = DataLoader(
