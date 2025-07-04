@@ -1,23 +1,71 @@
-from datasets import load_dataset
+from datasets import load_dataset, concatenate_datasets, Dataset
 from transformers import AutoTokenizer
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset as torchDataset
 from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
+n_samples = 5
+test_split = 0.2
+num_workers = 0
+batch_size = 8
 
-dataset=load_dataset("roneneldan/TinyStories",split="train[:55000]")
-dataset
+# dataset=load_dataset("roneneldan/TinyStories",split="train[:55000]")
+# train_data=dataset[:50000]
+# val_data=dataset[50000:55000]
+
+# get the three subsets of arxiv, code and simple stories
+arxiv_url = [
+    "https://olmo-data.org/dolma-v1_7/redpajama-arxiv/arxiv-0000.json.gz",
+]
+code_url = ["https://olmo-data.org/dolma-v1_7/starcoder/starcoder-0000.json.gz"]
+simeple_stories_ds = load_dataset("SimpleStories/SimpleStories", split="train", streaming=True)
+
+arxiv_ds = load_dataset(
+    "json",
+    data_files=arxiv_url,
+    split="train",
+    streaming=True,
+)
+code_ds = load_dataset(
+    "json",
+    data_files=code_url,
+    split="train",
+    streaming=True,
+)
+
+datasets = [
+    Dataset.from_list([{"text": item["story"]} for item in simeple_stories_ds.take(n_samples)]),
+    Dataset.from_list([{"text": item["text"]} for item in arxiv_ds.take(n_samples)]),
+    Dataset.from_list([{"text": item["text"]} for item in code_ds.take(n_samples)])
+]
+
+# combine
+combined_ds = concatenate_datasets(datasets)
+
+print(f"total items: {len(combined_ds)}")
+
+# train/val split
+train_test_split = combined_ds.train_test_split(test_size=test_split, seed=42)
+train_dataset = train_test_split['train']
+val_dataset = train_test_split['test']
+
+# convert to dictionary format with "text" key
+train_data = {"text": train_dataset["text"]} # the value of this dict is a list of the text samples
+val_data = {"text": val_dataset["text"]}
+
+# print(f"train items: {len(train_data['text'])}")
+# print(f"val items: {len(val_data['text'])}")
+
+
 tokenizer = AutoTokenizer.from_pretrained("gpt2", legacy=False)  # or "meta-llama/Llama-2-7b", use gpt2 tokenizer (50k vocab size basically)
-# Set pad_token to eos_token since GPT-2 doesn't have a dedicated pad token
+# set pad_token to eos_token since GPT-2 doesn't have a dedicated pad token
 tokenizer.pad_token = tokenizer.eos_token
-tokens = tokenizer("The cat sat on the mat.", return_tensors="pt")
-train_data=dataset[:50000]
-val_data=dataset[50000:55000]
-
 vocab_size=tokenizer.vocab_size
-class Tiny_dataset(Dataset):
+
+
+class Tiny_dataset(torchDataset):
     def __init__(self, data, tokenizer, max_seq_length=150):
         """
         Initializes a TinyDataset instance.
@@ -33,7 +81,7 @@ class Tiny_dataset(Dataset):
             encoded_texts (list): A list of encoded text sequences.
             max_seq_length (int): The maximum sequence length for tokenization.
         """
-        self.data = data
+        self.dataset = data
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
 
@@ -68,9 +116,6 @@ train_dataset=Tiny_dataset(data=train_data,tokenizer=tokenizer)
 val_dataset=Tiny_dataset(data=val_data,tokenizer=tokenizer)
 
 
-
-from torch.nn.utils.rnn import pad_sequence
-
 def collate_fn(batch):
     """
     Custom collate function to pad sequences to the same length.
@@ -84,13 +129,6 @@ def collate_fn(batch):
     padded_labels = pad_sequence(labels, batch_first=True, padding_value=tokenizer.pad_token_id)
 
     return padded_input_ids, padded_labels
-
-
-
-
-
-num_workers=2
-batch_size=8
 
 train_loader = DataLoader(
     dataset=train_dataset,
@@ -108,5 +146,5 @@ val_loader = DataLoader(
     drop_last=False,
     collate_fn=collate_fn
 )
-print(len(val_loader))
 
+print(f"number of items in val_loader: {len(val_loader)}")

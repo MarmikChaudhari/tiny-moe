@@ -11,8 +11,7 @@ from models.dense.config import ModelArgs
 from data import vocab_size,tokenizer,train_dataset,val_dataset,train_loader,val_loader,batch_size
 from tqdm import tqdm
 import argparse
-
-print(len(val_loader))
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 device="cuda" if torch.cuda.is_available() else "cpu"
 config = ModelArgs(vocab_size=vocab_size,d_model=768,d_head=96,n_heads=8,n_kv_heads=2,window_size=257,
@@ -158,20 +157,18 @@ def train(resume_path=None,use_wandb=False):
                 #     best_val_loss=val_loss
                 if val_loss<best_val_loss:
                     best_val_loss=val_loss
-                    save_checkpoint(model,optimizer,scheduler,step,"models/best_epoch.pt",best_val_loss=best_val_loss)
+                    save_checkpoint(model,optimizer,scheduler,step,"trained_models/best_epoch_dense.pt",best_val_loss=best_val_loss)
                     print("best model saved at step",step)
     
 
-        save_checkpoint(model, optimizer, scheduler, step, "models/last_epoch.pt")
+        save_checkpoint(model, optimizer, scheduler, step, "trained_models/last_epoch_dense.pt")
         print(f"Epoch {epoch+1} complete. Avg Loss: {running_loss / len(train_loader):.4f}")
 
     print("✅ Training complete.")
 
 
-# train(use_wandb=True)
-
 parser = argparse.ArgumentParser()
-parser.add_argument("--checkpoint", type=str, default="models/best_model.pt", help="Path to model checkpoint")
+parser.add_argument("--checkpoint", type=str, default="trained_models/best_model_dense.pt", help="Path to model checkpoint")
 parser.add_argument("--usewandb", action="store_true", default=False, help="Use Weights & Biases logging")
 args = parser.parse_args()
 

@@ -163,11 +163,11 @@ def train(resume_path=None,use_wandb=False):
                 #     best_val_loss=val_loss
                 if val_loss<best_val_loss:
                     best_val_loss=val_loss
-                    save_checkpoint(model,optimizer,scheduler,step,"models/best_epoch.pt",best_val_loss=best_val_loss)
+                    save_checkpoint(model,optimizer,scheduler,step,"trained_models/best_epoch_moe.pt",best_val_loss=best_val_loss)
                     print("best model saved at step",step)
     
 
-        save_checkpoint(model, optimizer, scheduler, step, "models/last_epoch.pt")
+        save_checkpoint(model, optimizer, scheduler, step, "trained_models/last_epoch_moe.pt")
         print(f"Epoch {epoch+1} complete. Avg Loss: {running_loss / len(train_loader):.4f}")
 
     print("✅ Training complete.")
@@ -176,7 +176,7 @@ def train(resume_path=None,use_wandb=False):
 # train(use_wandb=True)
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--checkpoint", type=str, default="models/best_model.pt", help="Path to model checkpoint")
+parser.add_argument("--checkpoint", type=str, default="trained_models/best_model_moe.pt", help="Path to model checkpoint")
 parser.add_argument("--usewandb", action="store_true", default=False, help="Use Weights & Biases logging")
 args = parser.parse_args()
 
