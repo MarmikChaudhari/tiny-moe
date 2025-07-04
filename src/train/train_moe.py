@@ -14,7 +14,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 device="cuda" if torch.cuda.is_available() else "cpu"
-config = ModelArgs(vocab_size=vocab_size,d_model=2048,d_head=96,n_heads=8,n_kv_heads=2,window_size=257,n_experts=8,
+config = ModelArgs(vocab_size=vocab_size,d_model=512,d_head=64,n_heads=8,n_kv_heads=2,window_size=5,n_experts=8,
                  top_k=2,n_layers=5,batch_size=batch_size,train_epochs=1,val_epochs=2,seq_len=150,max_seq_len=512,
                  clip=1,attn_dropout=0.1,dropout=0.1,max_lr=1e-3,beta1=0.9,beta2=0.999,device=device,wandb_project="mixtral",norm_eps=1e-6,attn_eps=1e-6,ffn_eps=1e-6)
 

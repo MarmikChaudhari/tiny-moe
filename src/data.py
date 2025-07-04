@@ -6,9 +6,9 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
-n_samples_simple_stories = 800_000 
-n_samples_code = 230_000 
-n_samples_arxiv = 22_000 # down sample as avg sample length of arxiv is way higher than other subsets
+n_samples_simple_stories = 1 
+n_samples_code = 1 
+n_samples_arxiv = 1 # down sample as avg sample length of arxiv is way higher than other subsets
 test_split = 0.2
 num_workers = 4
 batch_size = 8
