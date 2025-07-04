@@ -1,9 +1,5 @@
-# tiny-mixtral 175M MoE
-
-
----
-
-## 🧠 About Tiny-Mixtral
+# tiny-moe 175M MoE
+## 🧠 About Tiny-MoE
 
 This project is a simplified re-implementation of the **Mixtral of Experts** (MoE) architecture, inspired by the paper *"Mixtral of Experts: Sparse Mixture of Experts for Efficient Language Modeling"*. It aims to reproduce core ideas like sparse routing, expert selection, and caching strategies in a lightweight and educational way.
 
@@ -23,12 +19,10 @@ This project is a simplified re-implementation of the **Mixtral of Experts** (Mo
 
 - **Rolling Buffer KV Cache:**
   Implements a memory-efficient rolling cache that discards the oldest tokens as new ones come in, while maintaining relevant recent context for the model.
-
 ---
+## dense
+this repository also contains code to train and do inference on a dense gpt2 style model under `src/models/dense`.
 
-This minimal implementation is suitable for understanding how modern LLM optimizations work, especially in resource-constrained environments or for academic exploration.
-
----
 Example of a generated text:
 ```
 Once upon a time blue came home youo noise down lots it riendsoo thoughto some you you you themeed back you you you you
@@ -41,7 +35,6 @@ Training was done using the [TinyStories](https://huggingface.co/datasets/tiny_s
 
 ### ⚙️ Hardware
 - **GPU Used:** NVIDIA Tesla P100  
-- **Platform:** Kaggle Notebooks
 
 ### 📈 First 2 Epochs: Learning Rate & Training Loss
 
@@ -62,10 +55,12 @@ huggingface-cli login
 # Log in to Weights & Biases (W&B)
 import wandb
 wandb.login()
-#train
-python train.py --usewandb
+#train dense
+python train/train_dense.py --usewandb
+#train moe
+python train/train_moe.py --usewandb
 #resume training from a checkpoint
-python train.py --usewandb --checkpoint models/best_epoch.pt
+python train/train_moe.py --usewandb --checkpoint models/best_epoch.pt
 #generate
 python generate_text.py --prompt "Once upon a time" --max_new_tokens 20
 
