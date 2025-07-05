@@ -39,7 +39,7 @@ class layer(nn.Module):
                                             ,device=self.device,max_seq_len=max_seq_len,num_kv_heads=self.n_kv_heads,
                                             )
         
-        self.ffn=SparseMOE(d_model=self.d_model,d_hidden=self.d_model * top_k,num_experts=num_experts,top_k=top_k)
+        self.ffn=SparseMOE(d_model=self.d_model,d_hidden=self.d_model * 2, num_experts=num_experts,top_k=top_k) # for matching total params just do d_hidden = d_model // 2 & d_hidden = d_model * 2 for matching active params
         
         self.attn_norm=RMSNorm(dim=d_model,eps=attn_eps)
         self.ffn_norm=RMSNorm(dim=d_model,eps=ffn_eps)

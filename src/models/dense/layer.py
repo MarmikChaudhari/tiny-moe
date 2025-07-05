@@ -43,7 +43,7 @@ class layer(nn.Module):
         )
         
         # Use 4*d_model as hidden dimension, following standard transformer practice
-        self.ffn = SwiGLUFFN(input_dim=self.d_model, hidden_dim=4 * self.d_model)
+        self.ffn = SwiGLUFFN(input_dim=self.d_model, hidden_dim = 4 * self.d_model)
         
         self.attn_norm = RMSNorm(dim=d_model, eps=attn_eps)
         self.ffn_norm = RMSNorm(dim=d_model, eps=ffn_eps)
