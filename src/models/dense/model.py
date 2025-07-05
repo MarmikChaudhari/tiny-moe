@@ -15,15 +15,17 @@ class tiny_gpt(nn.Module):
         self.vocab_size=args.vocab_size
         self.n_layers=args.n_layers
         self.tok_embedding=nn.Embedding(self.vocab_size,args.d_model)
-        self.layers=clones(layer(d_model=args.d_model,d_head=args.d_head,n_heads=args.n_heads,
-                                 n_kv_heads=args.n_kv_heads,window_size=args.window_size,
-                                 device=args.device,max_seq_len=args.max_seq_len,attn_eps=args.attn_eps,
-                                 dropout=args.attn_dropout,ffn_eps=args.ffn_eps),self.n_layers)
+        self.layers=clones(layer(d_model=args.d_model,
+                                 n_heads=args.n_heads,
+                                 device=args.device,
+                                 attn_eps=args.attn_eps,
+                                 dropout=args.attn_dropout,
+                                 ffn_eps=args.ffn_eps),self.n_layers)
         self.norm=RMSNorm(args.d_model,eps=args.norm_eps)
         
         self.output=nn.Linear(in_features=args.d_model,out_features=self.vocab_size)
         
-        self.freqs_complex=precompute_theta_pos_frequencies(d_head=args.d_head,seq_len=args.max_seq_len,device=args.device)
+        self.freqs_complex=precompute_theta_pos_frequencies(d_head=args.d_model//args.n_heads,seq_len=args.max_seq_len,device=args.device)
     
     
     def forward(self,x:torch.Tensor,start_pos:int):

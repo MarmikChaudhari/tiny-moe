@@ -7,6 +7,118 @@ from utils import apply_rotary_embeddings
 
 import math
 import torch.nn.functional as F
+
+class SimpleMultiHeadAttention(nn.Module):
+    """Simple multi-head attention without GQA, sliding window, or KV cache"""
+    
+    def __init__(self, dim: int, num_heads: int, device, dropout: float = 0.0, bias: bool = False):
+        """
+        Initialize the SimpleMultiHeadAttention module.
+
+        Args:
+            dim (int): The dimensionality of the input and output features.
+            num_heads (int): The number of attention heads.
+            device: The device to use (cpu or cuda).
+            dropout (float, optional): Dropout rate. Defaults to 0.0.
+            bias (bool, optional): Whether to use bias in linear layers. Defaults to False.
+        """
+        super().__init__()
+        assert dim % num_heads == 0, f"dim {dim} must be divisible by num_heads {num_heads}"
+        
+        self.dim = dim
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.device = device
+        self.dropout = dropout
+        
+        # Combined projection for queries, keys, and values
+        self.c_attn = nn.Linear(dim, 3 * dim, bias=bias)
+        # Output projection
+        self.c_proj = nn.Linear(dim, dim, bias=bias)
+        
+        # Dropout layers
+        self.attn_dropout = nn.Dropout(dropout)
+        self.resid_dropout = nn.Dropout(dropout)
+        
+        # Use flash attention if available
+        self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
+        if not self.flash:
+            print("WARNING: using slow attention. Flash Attention requires PyTorch >= 2.0")
+
+    def forward(self, x: torch.Tensor, freqs_complex: torch.Tensor = None, start_pos: int = 0):
+        """
+        Compute multi-head attention.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, seq_len, dim).
+            freqs_complex (torch.Tensor, optional): Complex position frequencies for RoPE. Defaults to None.
+            start_pos (int, optional): Starting position (unused in simple attention). Defaults to 0.
+
+        Returns:
+            torch.Tensor: Output tensor of shape (batch_size, seq_len, dim).
+        """
+        batch_size, seq_len, _ = x.shape
+        
+        # Calculate query, key, values for all heads in batch
+        q, k, v = self.c_attn(x).split(self.dim, dim=2)
+        
+        # Reshape and transpose for multi-head attention
+        # (batch_size, seq_len, num_heads, head_dim) -> (batch_size, num_heads, seq_len, head_dim)
+        q = q.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        k = k.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        v = v.view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        
+        # Apply rotary embeddings if provided
+        if freqs_complex is not None:
+            # Note: apply_rotary_embeddings expects (batch, seq_len, num_heads, head_dim)
+            q_rotary = q.transpose(1, 2)  # (batch_size, seq_len, num_heads, head_dim)
+            k_rotary = k.transpose(1, 2)  # (batch_size, seq_len, num_heads, head_dim)
+            
+            q_rotary = apply_rotary_embeddings(q_rotary, freqs_complex, device=self.device)
+            k_rotary = apply_rotary_embeddings(k_rotary, freq_complex=freqs_complex, device=self.device)
+            
+            q = q_rotary.transpose(1, 2)  # Back to (batch_size, num_heads, seq_len, head_dim)
+            k = k_rotary.transpose(1, 2)  # Back to (batch_size, num_heads, seq_len, head_dim)
+        
+        # Compute attention
+        if self.flash:
+            # Use flash attention for efficiency
+            y = torch.nn.functional.scaled_dot_product_attention(
+                q, k, v, 
+                attn_mask=None, 
+                dropout_p=self.dropout if self.training else 0, 
+                is_causal=True
+            )
+        else:
+            # Manual implementation of attention
+            # Compute attention scores
+            attn_scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.head_dim)
+            
+            # Apply causal mask
+            causal_mask = torch.tril(torch.ones(seq_len, seq_len, device=self.device))
+            causal_mask = causal_mask.view(1, 1, seq_len, seq_len)
+            attn_scores = attn_scores.masked_fill(causal_mask == 0, float('-inf'))
+            
+            # Apply softmax
+            attn_weights = F.softmax(attn_scores, dim=-1)
+            attn_weights = self.attn_dropout(attn_weights)
+            
+            # Apply attention to values
+            y = torch.matmul(attn_weights, v)
+        
+        # Reshape back to (batch_size, seq_len, dim)
+        y = y.transpose(1, 2).contiguous().view(batch_size, seq_len, self.dim)
+        
+        # Output projection
+        y = self.resid_dropout(self.c_proj(y))
+        
+        return y
+
+    def reset_cache(self):
+        """Reset cache (no-op for simple attention)"""
+        pass
+
+# Keep the original complex attention for backward compatibility
 class AttentionWithKVCache(nn.Module):
     def __init__(self, dim: int, num_heads: int, window_size: int, device, max_seq_len: int = 2048, num_kv_heads:int=2):
         """

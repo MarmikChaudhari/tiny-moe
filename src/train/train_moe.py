@@ -158,15 +158,15 @@ def train(resume_path=None,use_wandb=False):
                 #     best_val_loss=val_loss
                 if val_loss<best_val_loss:
                     best_val_loss=val_loss
-                    save_checkpoint(model,optimizer,scheduler,step,"trained_models/best_val_loss_moe_step_{step}.pt",best_val_loss=best_val_loss)
+                    save_checkpoint(model,optimizer,scheduler,step,f"trained_models/best_val_loss_moe_step_{step}.pt",best_val_loss=best_val_loss)
                     print("best val loss model saved at step",step)
 
             if step % config.save_steps == 0: # save model every save_steps
-                save_checkpoint(model,optimizer,scheduler,step,"trained_models/moe_step_{step}.pt")
+                save_checkpoint(model,optimizer,scheduler,step,f"trained_models/moe_step_{step}.pt")
                 print(f"model saved at step {step}")
     
 
-        save_checkpoint(model, optimizer, scheduler, step, "trained_models/last_epoch_moe_{epoch}.pt")
+        save_checkpoint(model, optimizer, scheduler, step, f"trained_models/last_epoch_moe_{epoch}.pt")
         print(f"Epoch {epoch+1} complete. Avg Loss: {running_loss / len(train_loader):.4f}")
 
     print("✅ Training complete.")
