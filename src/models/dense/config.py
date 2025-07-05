@@ -9,14 +9,14 @@ class ModelArgs:
     n_kv_heads:int = 4 #number of key-value heads # 4
     n_layers:int = 5 #number of layers # 5
     train_epochs:int = 1 #number of epochs # 1
-    batch_size:int = 64 #batch size # 256
+    batch_size:int = 256 #batch size # 256
     val_epochs:int = 1 #number of validation epochs # 1
     window_size:int = 128 #window size # 128
     seq_len:int = 512 #sequence length # 512
     max_seq_len:int = 1024 #maximum sequence length # 1024
     max_lr:float = 1e-3 #maximum learning rate
-    val_steps:int = 1000 #validation steps # TODO: val steps ????
-    save_steps:int = 1000 #save steps # TODO: save steps ????
+    val_steps:int = 300 #validation steps # 250-500 depending on total_train_steps
+    save_steps:int = 1000 #save steps # 1000, total_train_steps = total_toks // (batch_size * seq_len)
     # do not change
     clip:int = 1 #gradient clipping
     attn_dropout:float = 0.1 #attention dropout

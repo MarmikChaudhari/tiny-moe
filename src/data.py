@@ -6,12 +6,12 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
-n_samples_simple_stories = 1 # 800_000 
-n_samples_code = 1 # 220_000 
-n_samples_arxiv = 1 # 21_000 # down sample as avg sample length of arxiv is way higher than other subsets
+n_samples_simple_stories = 1_000_000 # 1_000_000 
+n_samples_code = 210_000 # 210_000 
+n_samples_arxiv = 21_000 # 21_000 # down sample as avg sample length of arxiv is way higher than other subsets
 test_split = 0.2
 num_workers = 4
-batch_size = 8 # 512
+batch_size = 256 # 512/ 256
 vocab_size   = None
 tokenizer    = None
 train_loader = None

@@ -12,7 +12,8 @@ from tqdm import tqdm
 import argparse
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 device="cuda" if torch.cuda.is_available() else "cpu"
-config = ModelArgs(vocab_size=vocab_size, batch_size=batch_size, device=device)
+BATCH_SIZE = 256
+config = ModelArgs(vocab_size=vocab_size, batch_size = BATCH_SIZE, device=device)
 
 
 def save_checkpoint(model,optimizer,scheduler,step,path,best_val_loss=None):
