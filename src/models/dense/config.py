@@ -6,7 +6,7 @@ class ModelArgs:
     d_model: int = 768 #embedding size # 768
     d_head: int = 64 #head size
     n_heads:int = 12 #number of heads # 12
-    n_kv_heads:int = 4 #number of key-value heads # 4
+    n_kv_heads:int = 8 #number of key-value heads # 8
     n_layers:int = 5 #number of layers # 5
     train_epochs:int = 1 #number of epochs # 1
     batch_size:int = 256 #batch size # 256
