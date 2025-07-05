@@ -16,6 +16,7 @@ class ModelArgs:
     max_seq_len:int = 1024 #maximum sequence length # 1024
     max_lr:float = 1e-3 #maximum learning rate
     val_steps:int = 1000 #validation steps # TODO: val steps ????
+    save_steps:int = 1000 #save steps # TODO: save steps ????
     # do not change
     clip:int = 1 #gradient clipping
     attn_dropout:float = 0.1 #attention dropout

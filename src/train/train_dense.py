@@ -86,7 +86,7 @@ def train(resume_path=None,use_wandb=False):
     scheduler=torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=config.train_epochs)
     
     criterion=torch.nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
-    start_step=0
+    start_step = 0
    
         
     best_val_loss = float("inf")
@@ -110,7 +110,7 @@ def train(resume_path=None,use_wandb=False):
         wandb.init(project=config.wandb_project,config=config,resume="allow")
         wandb.watch(model)
     
-    step=start_step
+    step = start_step
     
     for epoch in range(config.train_epochs):
         model.train()
@@ -129,8 +129,8 @@ def train(resume_path=None,use_wandb=False):
             torch.nn.utils.clip_grad_norm_(model.parameters(),config.clip)
             optimizer.step()
             scheduler.step()
-            step+=1
-            running_loss+=loss.item()
+            step += 1
+            running_loss += loss.item()
             if use_wandb:
                 wandb.log({
                     "train/loss":loss.item(),
@@ -139,9 +139,9 @@ def train(resume_path=None,use_wandb=False):
                     "step":step,
                 })
             
-            if step%config.val_steps == 0:
-                print(f'val loss...')
-                val_loss=evaluate(model,val_loader,criterion)
+            if step % config.val_steps == 0:
+                print(f'val loss at step {step}...')
+                val_loss = evaluate(model,val_loader,criterion)
                 model.train()
                 if use_wandb:
                     wandb.log({
@@ -151,13 +151,17 @@ def train(resume_path=None,use_wandb=False):
                     })
                 # if best_val_loss is None:
                 #     best_val_loss=val_loss
-                if val_loss<best_val_loss:
+                if val_loss < best_val_loss:
                     best_val_loss=val_loss
-                    save_checkpoint(model,optimizer,scheduler,step,"trained_models/best_epoch_dense.pt",best_val_loss=best_val_loss)
-                    print("best model saved at step",step)
+                    save_checkpoint(model,optimizer,scheduler,step,"trained_models/best_val_loss_dense_step_{step}.pt",best_val_loss=best_val_loss)
+                    print("best val loss model saved at step",step)
+
+            if step % config.save_steps == 0: # save model every save_steps
+                save_checkpoint(model,optimizer,scheduler,step,"trained_models/dense_step_{step}.pt")
+                print(f"model saved at step {step}")
     
 
-        save_checkpoint(model, optimizer, scheduler, step, "trained_models/last_epoch_dense.pt")
+        save_checkpoint(model, optimizer, scheduler, step, "trained_models/last_epoch_dense_{epoch}.pt")
         print(f"Epoch {epoch+1} complete. Avg Loss: {running_loss / len(train_loader):.4f}")
 
     print("✅ Training complete.")

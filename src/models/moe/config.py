@@ -18,6 +18,7 @@ class ModelArgs:
     n_experts:int = 8 #number of experts # 8
     top_k:int = 2 #top k # 2
     val_steps:int = 1000 #validation steps # TODO: val_steps ????
+    save_steps:int = 1000 #save steps # TODO: save steps ????
     # do not change
     clip:int = 1 #gradient clipping
     attn_dropout:float = 0.1 #attention dropout
