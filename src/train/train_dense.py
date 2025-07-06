@@ -58,11 +58,11 @@ def evaluate(model, dataloader, criterion):
             inputs, targets = [x.to(device) for x in batch]
             
             # Ensure batch size is 1 for inference (if required by your model)
-            if inputs.size(0) != 1:
-                raise ValueError(
-                    f"Inference requires batch_size=1, got {inputs.size(0)}. "
-                    "Modify your DataLoader or handle batching differently."
-                )
+            # if inputs.size(0) != 1:
+            #     raise ValueError(
+            #         f"Inference requires batch_size=1, got {inputs.size(0)}. "
+            #         "Modify your DataLoader or handle batching differently."
+            #     )
             
             # Forward pass - dense model only returns outputs, no load balancing loss
             outputs = model(inputs, start_pos=0)
@@ -101,10 +101,10 @@ def train(resume_path=None,use_wandb=False):
         scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         start_step = checkpoint.get("step", 0)
         best_val_loss = checkpoint.get("best_val_loss", float("inf"))
-        for layer in model.layers:
-            if hasattr(layer, 'attention') and hasattr(layer.attention, 'reset_cache'):
-                layer.attention.reset_cache()
-                #print("cache reset")
+        # for layer in model.layers:
+        #     if hasattr(layer, 'attention') and hasattr(layer.attention, 'reset_cache'):
+        #         layer.attention.reset_cache()
+        #         #print("cache reset")
         
     
     if use_wandb:

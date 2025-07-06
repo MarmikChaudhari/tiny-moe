@@ -1,10 +1,11 @@
-from datasets import load_dataset, concatenate_datasets, Dataset
+from datasets import load_dataset, concatenate_datasets, Dataset, load_from_disk
 from transformers import AutoTokenizer
 import torch
 from torch.utils.data import Dataset as torchDataset
 from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
+import os
 
 n_samples_simple_stories = 10000 # 1_000_000 
 n_samples_code = 5000 # 210_000 
@@ -141,33 +142,72 @@ class Tiny_dataset(torchDataset):
 # pad_token_id = None
 
 def init_dataset(n_samples_simple_stories=n_samples_simple_stories,n_samples_code=n_samples_code,n_samples_arxiv=n_samples_arxiv,test_split=test_split):
-    train_data, val_data, tokenizer, vocab_size = get_dataset_tokenizer(n_samples_simple_stories, n_samples_code, n_samples_arxiv, test_split)
-    train_dataset=Tiny_dataset(data=train_data,tokenizer=tokenizer)
-    val_dataset=Tiny_dataset(data=val_data,tokenizer=tokenizer)
-    # save the tokenized datasets to disk
-    print("Saving tokenized datasets to disk...")
+    
+    # Check if processed tokens exist
+    if os.path.exists("processed_data/train_tokenized") and os.path.exists("processed_data/val_tokenized"):
+        print("Loading processed tokens from disk...")
+        
+        # Load tokenized datasets
+        train_tokenized_hf = load_from_disk("processed_data/train_tokenized")
+        val_tokenized_hf = load_from_disk("processed_data/val_tokenized")
+        
+        # Get tokenizer
+        tokenizer = AutoTokenizer.from_pretrained("gpt2", legacy=False)
+        tokenizer.pad_token = tokenizer.eos_token
+        vocab_size = tokenizer.vocab_size
+        
+        # Create custom dataset class that directly uses the tokenized data
+        class PreTokenizedDataset(torchDataset):
+            def __init__(self, tokenized_data):
+                self.input_ids = tokenized_data["input_ids"]
+                self.labels = tokenized_data["labels"]
+            
+            def __getitem__(self, index):
+                return {
+                    "input_ids": torch.tensor(self.input_ids[index], dtype=torch.long),
+                    "labels": torch.tensor(self.labels[index], dtype=torch.long)
+                }
+            
+            def __len__(self):
+                return len(self.input_ids)
+        
+        train_dataset = PreTokenizedDataset(train_tokenized_hf)
+        val_dataset = PreTokenizedDataset(val_tokenized_hf)
+        
+        print("Processed tokens loaded successfully!")
+        return train_dataset, val_dataset, tokenizer, vocab_size
+    
+    else:
+        print("No processed tokens found. Creating new datasets...")
+        train_data, val_data, tokenizer, vocab_size = get_dataset_tokenizer(n_samples_simple_stories, n_samples_code, n_samples_arxiv, test_split)
+        train_dataset=Tiny_dataset(data=train_data,tokenizer=tokenizer)
+        val_dataset=Tiny_dataset(data=val_data,tokenizer=tokenizer)
+        
+        # save the tokenized datasets to disk
+        print("Saving tokenized datasets to disk...")
+        os.makedirs("processed_data", exist_ok=True)
 
-    # convert the torch datasets back to HuggingFace format for saving
-    train_tokenized_data = {
-        "input_ids": [item["input_ids"].tolist() for item in train_dataset],
-        "labels": [item["labels"].tolist() for item in train_dataset]
-    }
+        # convert the torch datasets back to HuggingFace format for saving
+        train_tokenized_data = {
+            "input_ids": [item["input_ids"].tolist() for item in train_dataset],
+            "labels": [item["labels"].tolist() for item in train_dataset]
+        }
 
-    val_tokenized_data = {
-        "input_ids": [item["input_ids"].tolist() for item in val_dataset],
-        "labels": [item["labels"].tolist() for item in val_dataset]
-    }
+        val_tokenized_data = {
+            "input_ids": [item["input_ids"].tolist() for item in val_dataset],
+            "labels": [item["labels"].tolist() for item in val_dataset]
+        }
 
-    # create HuggingFace datasets from the tokenized data
-    train_tokenized_hf = Dataset.from_dict(train_tokenized_data)
-    val_tokenized_hf = Dataset.from_dict(val_tokenized_data)
+        # create HuggingFace datasets from the tokenized data
+        train_tokenized_hf = Dataset.from_dict(train_tokenized_data)
+        val_tokenized_hf = Dataset.from_dict(val_tokenized_data)
 
-    # save to disk
-    train_tokenized_hf.save_to_disk("processed_data/train_tokenized")
-    val_tokenized_hf.save_to_disk("processed_data/val_tokenized")
+        # save to disk
+        train_tokenized_hf.save_to_disk("processed_data/train_tokenized")
+        val_tokenized_hf.save_to_disk("processed_data/val_tokenized")
 
-    print("tokenized datasets saved to processed_data/train_tokenized and processed_data/val_tokenized")
-    return train_dataset, val_dataset, tokenizer, vocab_size
+        print("tokenized datasets saved to processed_data/train_tokenized and processed_data/val_tokenized")
+        return train_dataset, val_dataset, tokenizer, vocab_size
 
 
 class CollateFunction:
