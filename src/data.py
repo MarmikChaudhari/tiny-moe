@@ -6,10 +6,10 @@ from tqdm import tqdm
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader
 
-n_samples_simple_stories = 1_000_000 # 1_000_000 
-n_samples_code = 210_000 # 210_000 
-n_samples_arxiv = 21_000 # 21_000 # down sample as avg sample length of arxiv is way higher than other subsets
-test_split = 0.2
+n_samples_simple_stories = 10000 # 1_000_000 
+n_samples_code = 5000 # 210_000 
+n_samples_arxiv = 1000 # 21_000 # down sample as avg sample length of arxiv is way higher than other subsets
+test_split = 0.05
 num_workers = 4
 batch_size = 256 # 512/ 256
 vocab_size   = None
@@ -63,9 +63,9 @@ def get_dataset_tokenizer(n_samples_simple_stories=n_samples_simple_stories,n_sa
         code_data.append({"text": item["text"]})
 
     datasets = [
-        Dataset.from_list([{"text": item["story"]} for item in simeple_stories_ds.take(n_samples_simple_stories)]),
-        Dataset.from_list([{"text": item["text"]} for item in arxiv_ds.take(n_samples_arxiv)]),
-        Dataset.from_list([{"text": item["text"]} for item in code_ds.take(n_samples_code)])
+        Dataset.from_list(simple_stories_data),
+        Dataset.from_list(arxiv_data),
+        Dataset.from_list(code_data)
     ]
 
     # combine
@@ -144,6 +144,29 @@ def init_dataset(n_samples_simple_stories=n_samples_simple_stories,n_samples_cod
     train_data, val_data, tokenizer, vocab_size = get_dataset_tokenizer(n_samples_simple_stories, n_samples_code, n_samples_arxiv, test_split)
     train_dataset=Tiny_dataset(data=train_data,tokenizer=tokenizer)
     val_dataset=Tiny_dataset(data=val_data,tokenizer=tokenizer)
+    # save the tokenized datasets to disk
+    print("Saving tokenized datasets to disk...")
+
+    # convert the torch datasets back to HuggingFace format for saving
+    train_tokenized_data = {
+        "input_ids": [item["input_ids"].tolist() for item in train_dataset],
+        "labels": [item["labels"].tolist() for item in train_dataset]
+    }
+
+    val_tokenized_data = {
+        "input_ids": [item["input_ids"].tolist() for item in val_dataset],
+        "labels": [item["labels"].tolist() for item in val_dataset]
+    }
+
+    # create HuggingFace datasets from the tokenized data
+    train_tokenized_hf = Dataset.from_dict(train_tokenized_data)
+    val_tokenized_hf = Dataset.from_dict(val_tokenized_data)
+
+    # save to disk
+    train_tokenized_hf.save_to_disk("processed_data/train_tokenized")
+    val_tokenized_hf.save_to_disk("processed_data/val_tokenized")
+
+    print("tokenized datasets saved to processed_data/train_tokenized and processed_data/val_tokenized")
     return train_dataset, val_dataset, tokenizer, vocab_size
 
 
