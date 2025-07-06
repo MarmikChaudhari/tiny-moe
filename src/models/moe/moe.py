@@ -94,8 +94,23 @@ class SparseMOE(nn.Module):
         
         final_output = final_output.view(batch_size, seq_len, d_model)
         
-        router_probs_mean = router_probs.mean(dim=0)
-        load_balancing_loss = (router_probs_mean * router_probs_mean).sum() * self.num_experts
+        # router_probs_mean = router_probs.mean(dim=0)
+        # load_balancing_loss = (router_probs_mean * router_probs_mean).sum() * self.num_experts
+
+        # Step 4: Compute load balancing loss (Equation 4 from paper)
+        # f_i is the fraction of tokens dispatched to expert i
+        f_i = torch.zeros(self.num_experts, device=x.device)
+        for i in range(self.num_experts):
+            # Count how many tokens are assigned to expert i across all top-k selections
+            mask = (topk_indices == i).any(dim=-1)  # tokens that use expert i
+            f_i[i] = mask.float().mean()
+
+        # P_i is the fraction of router probability allocated to expert i
+        P_i = router_probs.mean(dim=0)  # average probability per expert across all tokens
+
+        # Load balancing loss: α * N * Σ(f_i * P_i)
+        alpha = 0.01  # auxiliary loss weight (you can make this configurable)
+        load_balancing_loss = alpha * self.num_experts * torch.sum(f_i * P_i)
         
         return final_output, load_balancing_loss
 

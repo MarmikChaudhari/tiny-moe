@@ -73,7 +73,7 @@ def evaluate(model, dataloader, criterion):
                 targets.view(-1)                      # shape: [seq_len * batch_size]
             )
             router_weight = 0.01
-            loss = ce_loss + router_weight * load_balancing_loss
+            loss = ce_loss +  load_balancing_loss
             
             # Accumulate loss and sample count
             total_loss += loss.item() * inputs.size(0)  # weight by batch size
@@ -126,7 +126,7 @@ def train(resume_path=None,use_wandb=False):
             outputs, load_balancing_loss = model(inputs,start_pos=0)
             ce_loss = criterion(outputs.view(-1,outputs.shape[-1]),targets.view(-1))
             router_weight = 0.01
-            loss = ce_loss + router_weight * load_balancing_loss
+            loss = ce_loss +  load_balancing_loss
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(),config.clip)
