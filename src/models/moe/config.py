@@ -1,5 +1,26 @@
 from dataclasses import dataclass
 import torch
+
+
+@dataclass
+class ModelConfig:
+    vocab_size:int = 50_257 # 50_256
+    d_model: int = 768 #embedding size # 768
+    d_head: int = 64 #head size
+    n_heads:int = 12 #number of heads # 12
+    n_layers:int = 5 #number of layers # 5
+    max_seq_len:int = 1024 #maximum sequence length
+    n_experts:int = 8 #number of experts # 8
+    top_k:int = 2 #top k # 2
+    # do not change
+    attn_dropout:float = 0.1 #attention dropout
+    dropout:float = 0.1 #dropout
+    norm_eps:float = 1e-6
+    attn_eps:float = 1e-6
+    ffn_eps:float = 1e-6
+    device:str = 'cuda' if torch.cuda.is_available() else 'cpu' 
+
+
 @dataclass
 class ModelArgs:
     vocab_size:int = 50_256 # 50_256
