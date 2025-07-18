@@ -4,6 +4,7 @@ import torch
 
 @dataclass
 class ModelConfig:
+    """config for tiny mixtral inference"""
     vocab_size:int = 50_257 # 50_256
     d_model: int = 768 #embedding size # 768
     d_head: int = 64 #head size
@@ -13,8 +14,8 @@ class ModelConfig:
     n_experts:int = 8 #number of experts # 8
     top_k:int = 2 #top k # 2
     # do not change
-    attn_dropout:float = 0.1 #attention dropout
-    dropout:float = 0.1 #dropout
+    attn_dropout:float = 0.0 #attention dropout
+    dropout:float = 0.0 #dropout
     norm_eps:float = 1e-6
     attn_eps:float = 1e-6
     ffn_eps:float = 1e-6
