@@ -173,6 +173,9 @@ def apply_rotary_embeddings(x:torch.Tensor,freq_complex:torch.Tensor,device:str)
     Returns:
         torch.Tensor: The tensor after applying Rotary Position Embeddings.
     """
+    # Ensure freq_complex is on the same device as x
+    freq_complex = freq_complex.to(x.device)
+    
     x_complex=torch.view_as_complex(x.float().reshape(*x.shape[:-1],-1,2)) #N,seq_len,h,head_dim/2,2 
     
     freq_complex=freq_complex.unsqueeze(0).unsqueeze(2) # 1,seq_len,1,head_dim/2
@@ -181,7 +184,8 @@ def apply_rotary_embeddings(x:torch.Tensor,freq_complex:torch.Tensor,device:str)
     x_out=torch.view_as_real(x_rotated) #(N,seq_len,h,head_dim/2,2)
     x_out=x_out.reshape(*x.shape)
     
-    return x_out.type_as(x).to(device)
+    # Keep the output on the same device as the input, not the device parameter
+    return x_out.type_as(x)
 
 
 
@@ -296,7 +300,7 @@ class SimpleMultiHeadAttention(nn.Module):
             k_rotary = k.transpose(1, 2)  # (batch_size, seq_len, num_heads, head_dim)
             
             q_rotary = apply_rotary_embeddings(q_rotary, freqs_complex, device=self.device)
-            k_rotary = apply_rotary_embeddings(k_rotary, freq_complex=freqs_complex, device=self.device)
+            k_rotary = apply_rotary_embeddings(k_rotary, freqs_complex, device=self.device)
             
             q = q_rotary.transpose(1, 2)  # Back to (batch_size, num_heads, seq_len, head_dim)
             k = k_rotary.transpose(1, 2)  # Back to (batch_size, num_heads, seq_len, head_dim)
@@ -444,12 +448,14 @@ class tiny_gpt(nn.Module):
         self.output=nn.Linear(in_features=args.d_model,out_features=self.vocab_size)
         
         self.freqs_complex=precompute_theta_pos_frequencies(d_head=args.d_model//args.n_heads,seq_len=args.max_seq_len,device=args.device)
+        # Register as buffer so it moves with the model
+        self.register_buffer('freqs_complex_buffer', self.freqs_complex)
     
     
     def forward(self,x:torch.Tensor,start_pos:int):
         batch_size,seq_len=x.shape
         h=self.tok_embedding(x)
-        freqs_complex=self.freqs_complex[start_pos:start_pos+seq_len]
+        freqs_complex=self.freqs_complex_buffer[start_pos:start_pos+seq_len]
         
         for layer in self.layers:
             h = layer(h,freqs_complex=freqs_complex,start_pos=start_pos)
