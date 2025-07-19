@@ -7,3 +7,6 @@ tests/__pycache__/
 *.DS_Store
 *.bin
 *.pt
+hf-mixtral-active/
+hf-mixtral-total/
+hf-tiny-gpt/

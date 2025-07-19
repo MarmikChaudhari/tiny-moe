@@ -81,7 +81,13 @@ class TinyMixtralConfig(PretrainedConfig):
                  device = ModelConfig.device,
                  **kwargs
                  ):
-        super().__init__(top_k=None,**kwargs)
+        kwargs["auto_map"] = {
+            "AutoConfig": "modeling_tiny_mixtral.TinyMixtralConfig",
+            "AutoModelForCausalLM": "modeling_tiny_mixtral.TinyMixtralForCausalLM"
+        }
+        # Remove top_k from kwargs if it exists to avoid conflict
+        # kwargs.pop('top_k', None)
+        super().__init__(**kwargs)
         self.vocab_size = vocab_size
         self.d_model = d_model
         self.d_head = d_head
@@ -479,7 +485,7 @@ class layer(nn.Module):
         self.attention=SimpleMultiHeadAttention(dim=self.d_model,num_heads=self.n_heads,device=self.device,
                                                 dropout=dropout,bias=False)
         
-        self.ffn=SparseMOE(d_model=self.d_model,d_hidden=self.d_model * 2, num_experts=num_experts,top_k=top_k) # for matching total params just do d_hidden = d_model // 2 & d_hidden = d_model * 2 for matching active params
+        self.ffn=SparseMOE(d_model=self.d_model,d_hidden=self.d_model // 2, num_experts=num_experts,top_k=top_k) # for matching total params just do d_hidden = d_model // 2 & d_hidden = d_model * 2 for matching active params
         
         self.attn_norm=RMSNorm(dim=d_model,eps=attn_eps)
         self.ffn_norm=RMSNorm(dim=d_model,eps=ffn_eps)

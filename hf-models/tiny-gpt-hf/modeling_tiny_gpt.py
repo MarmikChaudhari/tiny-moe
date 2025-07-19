@@ -74,7 +74,11 @@ class TinyGPTConfig(PretrainedConfig):
                  device = ModelConfig.device,
                  **kwargs
                  ):
-        super().__init__(top_k=None,**kwargs)
+        kwargs["auto_map"] = {
+            "AutoConfig": "modeling_tiny_gpt.TinyGPTConfig",
+            "AutoModelForCausalLM": "modeling_tiny_gpt.TinyGPTForCausalLM"
+        }
+        super().__init__(**kwargs)
         self.vocab_size = vocab_size
         self.d_model = d_model
         self.d_head = d_head
